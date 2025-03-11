@@ -188,3 +188,235 @@ class Solution {
 }
 ```
 
+# 121.买卖股票的最佳时机
+
+```java
+class Solution {
+    public int maxProfit(int[] prices) {
+        int minn = Integer.MAX_VALUE;
+        int ans = 0;
+        for(int i = 0; i < prices.length; i++){
+            if(minn > prices[i]){
+                minn = prices[i];
+            }
+            else if(prices[i] - minn > ans){
+                ans = prices[i] - minn;
+            }
+        }
+        return ans;
+    }
+}
+```
+
+# 122.买卖股票的最佳时机Ⅱ
+
+```java
+class Solution {
+    public int maxProfit(int[] prices) {
+        int minn = Integer.MAX_VALUE;
+        int sum = 0;
+        for(int i = 0; i < prices.length; i++){
+            if(minn > prices[i]){
+                minn = prices[i];
+            }
+            else if(prices[i] - minn > 0){
+                sum += prices[i] - minn;
+                minn = prices[i];
+            }
+        }
+        return sum;
+    }
+}
+```
+
+# 55.跳跃游戏（贪心）
+
+从末尾开始能走就走
+
+```java
+class Solution {
+    public boolean canJump(int[] nums) {
+        int place = nums.length - 1;
+        for(int i = nums.length - 1; i >= 0; i--){
+            if(nums[i] >= place - i)place = i;
+            if(place == 0){
+                return true;
+            }
+        }
+        return false;
+    }
+}
+```
+
+# 56.跳跃游戏Ⅱ（贪心）
+
+每次都到下一次可以走最多的地方
+
+```java
+class Solution {
+    public int jump(int[] nums) {
+        int ans = 0;
+        if(nums.length == 1)return 0;
+        for(int i = 0; i < nums.length;){
+            System.out.println(i);
+            if(nums[i] + i >= nums.length - 1){
+                ans++;
+                return ans;
+            }
+            else {
+                int maxx = i;
+                int d = nums[i] + i;
+                for(int j = i; j <= nums[i] + i; j++){
+                    if(nums[j] + j > d){
+                        maxx = j;
+                        d = nums[j] + j;
+                    }
+                }
+                i = maxx;
+                ans++;
+            }
+        }
+        return ans;
+    }
+}
+```
+
+# 274.H指数
+
+```java
+import java.util.*;
+class Solution {
+    public int hIndex(int[] citations) {
+        Arrays.sort(citations);
+        int ans = 0;
+        for(int i = citations.length - 1; i >= 0; i--){
+            if(citations[i] < citations.length - i)break;
+            ans = citations.length - i;
+        }
+        return ans;
+    }
+}
+```
+
+# 380.O(1)时间插入、删除和获取随即元素（模拟）
+
+```java
+import java.util.*;
+
+class RandomizedSet {
+    Map<Integer, Integer> map;
+    int idx = 0;
+    int[] num;
+
+
+    public RandomizedSet() {
+        map = new HashMap<>();
+        num = new int[200010];
+    }
+    
+    public boolean insert(int val) {
+        if(map.get(val) != null){
+            return false;
+        }
+        else {
+            map.put(val, idx);
+            num[idx++] = val;
+            return true;
+        }
+    }
+    
+    public boolean remove(int val) {
+        if(map.get(val) == null)return false;
+        else {
+            int t = map.get(val);
+            int m = num[idx - 1];
+            num[t] = m;
+            map.put(m, t);
+            idx--;
+            map.remove(val);
+            return true;
+        }
+    }
+    
+    public int getRandom() {
+        Random random = new Random();
+        int p = random.nextInt(idx);
+        return num[p];
+    }
+}
+
+/**
+ * Your RandomizedSet object will be instantiated and called as such:
+ * RandomizedSet obj = new RandomizedSet();
+ * boolean param_1 = obj.insert(val);
+ * boolean param_2 = obj.remove(val);
+ * int param_3 = obj.getRandom();
+ */
+```
+
+# 238.除自身以外数组的乘积
+
+```java
+class Solution {
+    public int[] productExceptSelf(int[] nums) {
+        int[] l = new int[nums.length];
+        int[] r = new int[nums.length];
+        int sum1 = 1; 
+        int sum2 = 1;
+        for(int i = 0, j = nums.length - 1; i < nums.length; i++, j--){
+              sum1 *= nums[i];
+              sum2 *= nums[j];
+              l[i] = sum1;
+              r[j] = sum2;
+        } 
+        for(int i = 0; i < nums.length; i++){
+            if(i == 0 && i == nums.length - 1)nums[i] = 0;
+            else if(i == 0){
+                nums[i] = r[i + 1];
+            }
+            else if(i == nums.length - 1){
+                nums[i] = l[i - 1];
+            }
+            else {
+                nums[i] = l[i - 1] * r[i + 1];
+            }
+        }
+        return nums;
+    }
+}
+```
+
+# 134.加油站
+
+```java
+class Solution {
+    public int canCompleteCircuit(int[] gas, int[] cost) {
+        int[] def = new int[gas.length];
+        int sum = 0;
+        for(int i = 0; i < gas.length; i++){
+            def[i] = gas[i] - cost[i];
+            sum += def[i];
+        }
+        if(sum < 0)return -1;
+        boolean check = true;
+        int place = -1;
+        int x = 0;
+        for(int i = 0; i < gas.length; i++){
+            if(def[i] < 0)check = true;
+            else if(place == -1 && check == true){
+                check = false;
+                place = i;
+            }
+            x += def[i];
+            if(x < 0){
+                check = true;
+                x = 0;
+                place = -1;
+            }
+            
+        }
+        return place;
+    }
+}
+```
+
