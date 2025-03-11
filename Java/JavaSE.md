@@ -206,7 +206,9 @@ public class Main{
         
         hashmap.put("yaolei", 1234);//插入，如果已有键会使新插入的覆盖以前的
         
-        hashmap.get("yaolei");//通过键寻找值，若查找不到则返回null
+        hashmap.get("yaolei");//通过键寻找值，若查找不到则返回nul
+        
+        hashmap.remove("yaolei");//通过键移除键值对，若找不到键返回null
         
         Set<String> keyset = hashmap.keySet();//这个函数返回一个包含所有键的集合，这个函数的返回值是Set接口类型
         boolean st = keyset.contains("zouzixi");//判断这个键是否出现过
