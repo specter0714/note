@@ -516,4 +516,31 @@ class Solution {
 }
 ```
 
-# 3.无重复字符的最长字串
+# 42.接雨水（单调栈）
+
+```java
+import java.util.*;
+class Solution {
+    public int trap(int[] height) {
+        Stack<Integer> stack = new Stack<>();
+        int sum = 0;
+        int h = 0;
+        for(int i = 0; i < height.length; i++){
+            if(stack.empty() || height[stack.peek()] >= height[i])stack.push(i);
+            else if(height[stack.peek()] < height[i]){
+                while(!stack.empty()){
+                    int l = stack.peek();
+                    sum += (i - l - 1) * (Math.min(height[l], height[i]) - h);
+                    System.out.println(l + " " + i + " " + sum);
+                    h = height[l];
+                    if(height[stack.peek()] > height[i])break;
+                    stack.pop();
+                }
+                stack.push(i);
+            }
+        }
+        return sum;
+    }
+}
+```
+
