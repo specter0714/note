@@ -1355,3 +1355,9 @@ public class Main{
 import导入的类，类加载器会优先加载jdk本身文件里的，然后才会加载自己写的，AppClassLoader就是用来加载自己写的，所以如果自己写的类名、包名都和jdk本身的类一直，如（java.util.HashMap），他就只会加载jdk本身的，不会加载自己写的
 
 实际上类最开始是由BootstarpClassLoader进行加载，BootstarpClassLoader用于加载JDK提供的类，而我们自己编写的类是AppClassLoader加载的，只有BootstarpClassLoader都没有加载的类，才会让AppClassLoader来加载，因此我们自己编写的同名包同名类不会被加载。
+
+
+
+
+
+。
