@@ -206,7 +206,9 @@ public class Main{
         
         hashmap.put("yaolei", 1234);//插入，如果已有键会使新插入的覆盖以前的
         
-        hashmap.get("yaolei");//通过键寻找值，若查找不到则返回null
+        hashmap.get("yaolei");//通过键寻找值，若查找不到则返回nul
+        
+        hashmap.remove("yaolei");//通过键移除键值对，若找不到键返回null
         
         Set<String> keyset = hashmap.keySet();//这个函数返回一个包含所有键的集合，这个函数的返回值是Set接口类型
         boolean st = keyset.contains("zouzixi");//判断这个键是否出现过
@@ -1345,3 +1347,17 @@ public class Main{
 **微观并行性**：当线程被分配到不同物理核心时，指令级并行（ILP）和流水线技术使得两个核心可以**真正同时执行指令**，单核心通过时间片切换实现的是**并发**（oncurrency）而非**并行**（parallelism）
 
 **JVM实现细节**：默认使用ForkJoinPool.commonPool()，
+
+# 类加载器
+
+![image-20250311201904641](../image/image-20250311201904641.png)
+
+import导入的类，类加载器会优先加载jdk本身文件里的，然后才会加载自己写的，AppClassLoader就是用来加载自己写的，所以如果自己写的类名、包名都和jdk本身的类一直，如（java.util.HashMap），他就只会加载jdk本身的，不会加载自己写的
+
+实际上类最开始是由BootstarpClassLoader进行加载，BootstarpClassLoader用于加载JDK提供的类，而我们自己编写的类是AppClassLoader加载的，只有BootstarpClassLoader都没有加载的类，才会让AppClassLoader来加载，因此我们自己编写的同名包同名类不会被加载。
+
+
+
+
+
+。

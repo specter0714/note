@@ -420,3 +420,127 @@ class Solution {
 }
 ```
 
+# 135.分发糖果（贪心）
+
+```java
+import java.util.*;
+class Solution {
+    public int candy(int[] ratings) {
+        int place = 0;
+        int h = 1;
+        int sum = 1;
+        int count = 1;
+        for(int i = 1; i < ratings.length; i++){
+            if(ratings[i] >= ratings[i - 1]){
+                if(count <= h){
+                    sum += add(count - 1);
+                }
+                else {
+                    sum -= h;
+                    sum += add(count);
+                }
+
+                if(count > 1)h = 1;
+                count = 1;
+
+                if(ratings[i] == ratings[i - 1]){
+                    h = 1;
+                    sum += h;
+                    place = i;
+                }
+                else {
+                    h++;
+                    sum += h;
+                    place = i;
+                }
+            }
+            else if(ratings[i] < ratings[i - 1]){
+                count++;
+            }
+        }
+        if(count <= h){
+            sum += add(count - 1);
+        }
+        else {
+            sum -= h;
+            sum += add(count);
+        }
+        return sum;
+    }
+    
+    public static int add(int res){
+        int sum = 0;
+        while(res > 0){
+            sum += res;
+            res--;
+        }
+        return sum;
+    }
+}
+```
+
+方法一：两次遍历
+思路及解法
+
+我们可以将「相邻的孩子中，评分高的孩子必须获得更多的糖果」这句话拆分为两个规则，分别处理。
+
+左规则：当 ratings[i−1]<ratings[i] 时，i 号学生的糖果数量将比 i−1 号孩子的糖果数量多。
+
+右规则：当 ratings[i]>ratings[i+1] 时，i 号学生的糖果数量将比 i+1 号孩子的糖果数量多。
+
+我们遍历该数组两次，处理出每一个学生分别满足左规则或右规则时，最少需要被分得的糖果数量。每个人最终分得的糖果数量即为这两个数量的最大值。
+
+```java
+class Solution {
+    public int candy(int[] ratings) {
+        int n = ratings.length;
+        int[] left = new int[n];
+        for (int i = 0; i < n; i++) {
+            if (i > 0 && ratings[i] > ratings[i - 1]) {
+                left[i] = left[i - 1] + 1;
+            } else {
+                left[i] = 1;
+            }
+        }
+        int right = 0, ret = 0;
+        for (int i = n - 1; i >= 0; i--) {
+            if (i < n - 1 && ratings[i] > ratings[i + 1]) {
+                right++;
+            } else {
+                right = 1;
+            }
+            ret += Math.max(left[i], right);
+        }
+        return ret;
+    }
+}
+```
+
+# 42.接雨水（单调栈）
+
+```java
+import java.util.*;
+class Solution {
+    public int trap(int[] height) {
+        Stack<Integer> stack = new Stack<>();
+        int sum = 0;
+        int h = 0;
+        for(int i = 0; i < height.length; i++){
+            if(stack.empty() || height[stack.peek()] >= height[i])stack.push(i);
+            else if(height[stack.peek()] < height[i]){
+                while(!stack.empty()){
+                    int l = stack.peek();
+                    sum += (i - l - 1) * (Math.min(height[l], height[i]) - h);
+                    System.out.println(l + " " + i + " " + sum);
+                    h = height[l];
+                    if(height[stack.peek()] > height[i])break;
+                    stack.pop();
+                }
+                stack.push(i);
+            }
+        }
+        return sum;
+    }
+}
+```
+
