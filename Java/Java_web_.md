@@ -57,3 +57,8 @@ Assertions.assertThrow(Class expType, Executable exec, String msg);//检查程�
 ```
 
 ![image-20250313195403029](../image/image-20250313195403029.png)
+
+# maven的常见问题
+
+![image-20250317200840752](../image/image-20250317200840752.png)
+
