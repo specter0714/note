@@ -331,9 +331,45 @@ void dfs(int n, int stap)
 
 ```
 
+# 头文件include\<set>:
+
+set就是集合，底层由红黑树实现，存入是会自动去重和排序，默认是升序
+
+访问元素的时间复杂度是$O(log_2n)$
+
+* 所有元素都会在插入时自动被排序
+* set/multiset属于关联时容器，底层结构是用二叉树实现
+* set不允许容器中有重复元素
+* multiset允许容器中有重复元素
+
+### 内容
+
+```c++
+set<int> se;
+multiset<int> mse;
+
+set<int> s1(se);//拷贝构造
+set<int, greater<int>> se1;//降序构造
+
+bool f(int v1, int v2)const{
+    return v1 > v2;
+}
+set<int, f> s1;//自定义排序
+
+set<int> s2;
+s2 = s1;//赋值
+
+q.insert(x);//将x插入q中
+//set插入数据的同时会返回插入的bool结果，表示插入是否成功
+//multiset不会检测数据，直接返回一个迭代器，因此可以重复插入数据
+
+q.erase(x);//删除q中的x元素，返回0或1，0表示set中不存在x
+q.clear(x);//清空q
+```
 
 
-# include\<map\>:
+
+# 头文件include\<map\>:
 
 map 是C++标准模板库(STL)的一个关联容器，提供一对一的映射关系
 
