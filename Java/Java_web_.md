@@ -245,3 +245,213 @@ public class ResponseController {
     }
 ```
 
+# 获取文件输入流
+
+src下的main下的java目录和resources目录最终编译后放在同一个目录下（classes目录下，也就是类路径下），这个时候我们就可以通过字节码对象来获取到类的加载器
+
+类加载器更安全，可以从classpath任何位置读取文件
+
+```java
+InputStream in = this.getClass().getClassLoader().getResourceAsStream("user.txt");
+```
+
+# String转换成LocalDateTime类型
+
+```java
+LocalDateTime updateTime = LocalDateTime.parse(parts[5],
+DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+```
+
+# 封装用户信息
+
+$@ResController = @Controller + @ResponseBody$
+
+$@RestController$这个注解底层封装了一个注解$@ResponseBody$
+
+这个注解的作用：将controller返回值最为响应体的数据直接响应；返回值是对象/集合 会先转 json 再响应
+
+```java
+//用户信息controller
+@RestController//这个注解底层封装了一个注解@ResponseBody
+public class UserController {
+    @RequestMapping("/list")
+    public List<User> list() throws Exception {
+        //1.加载并读取user.txt文件
+        //InputStream in = new FileInputStream(new File("src/main/resources/user.txt"));
+        InputStream in = this.getClass().getClassLoader().getResourceAsStream("user.txt");
+        ArrayList<String> lines = IoUtil.readLines(in, StandardCharsets.UTF_8, new ArrayList<>());//这个表示一行一行的读取
+
+
+        //2.解析用户信息，封装为User对象 - list集合
+        List<User> userList = lines.stream().map(line -> {
+            String[] parts = line.split(",");
+            Integer id = Integer.parseInt(parts[0]);
+            String username = parts[1];
+            String password = parts[2];
+            String name = parts[3];
+            Integer age = Integer.parseInt(parts[4]);
+            LocalDateTime updateTime = LocalDateTime.parse(parts[5], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return new User(id, username, password, name, age, updateTime);
+        }).collect(Collectors.toList());//在jdk17之后可以直接用.toList();
+
+        //3.返回数据到前端（json格式）
+        return userList;
+        //最终服务器在给前端响应数据的时候，会自动的将这个List集合转换为json格式的数据，然后再响应回去
+    }
+}
+```
+
+# 三层架构
+
+* controller：控制层，接受前端发送的请求，对请求进行处理，并响应数据。
+* service：业务逻辑层，处理具体的业务逻辑。
+* dao：数据访问层（Data Access Object）（持久层），负责数据访问操作，包括数据的增、删、改、查。
+
+# 分层解耦
+
+* **耦合**：衡量软件中各个层/各个模块的以来的关联程度
+* **内聚**：软件中各个功能模块内部的功能联系
+
+![image-20250507184809391](../image/image-20250507184809391.png)
+
+**控制反转**：Inversion Of Control，简称IOC。对象的创建控制权由程序自身转移到外部（容器），这种思想成为控制反转。
+
+**依赖注入**：Dependency Injection，简称DI。容器为应用程序提供运行时，所依赖的资源，称之为依赖注入。
+
+**Bean对象**：IOC容器中创建、管理的对象，称之为Bean。
+
+### 1.实现分层解耦的思路是什么？
+
+* 将项目中的类交给IOC容器管理（IOC， 控制反转）
+* 应用程序运行时需要什么对象，就直接依赖容器为其提供（DI， 依赖注入）
+
+```java
+@Component//表示下面这个实现类会存储到IOC容器中
+public class UserServiceImpl implements UserService {...}
+```
+
+```java
+@Autowired//应用程序运行时，会自动的查询该类型的bean对象，并赋值给该成员变量
+    private UserService userService;
+```
+
+### IOC详解
+
+|    注解     |         说明         |                      位置                       |
+| :---------: | :------------------: | :---------------------------------------------: |
+| @Component  |  声明bean的基础注解  |           不属于以下三类是，用此注解            |
+| @Controller | @Component的衍生注解 |                标注在控制层类上                 |
+|  @Service   | @Component的衍生注解 |                标注在业务层类上                 |
+| @Repository |  @Component衍生注解  | 标注在数据访问层上（由于与mybatis整合，用的少） |
+
+**注意**：声明bean的时候，可以通过注解的value属性指定bean的名字，如果没有指定，默认为类名首字母小写
+
+* 前面声明bean的四大注解，想要生效，还需要被组件扫描注解$@ComponentScan$扫描
+* 该注解虽然没有显示配置，但是实际上已经包含在了启动类声明注解$@SpringBootApplication$中，默认扫描范围是启动类所在包及其子包
+
+### DI详解
+
+![image-20250507200359724](../image/image-20250507200359724.png)
+
+* 属性注入：
+* * 优点：代码简洁，方便快速开发 
+  * 缺点：隐藏了类之间的依赖关系，可能会破坏类的封装性
+
+```java
+@Autowired
+private UserService userService;
+```
+
+* 构造器注入：
+* * 优点：能清晰的看到类的依赖关系、提高了代码的安全性
+  * 缺点：代码繁琐、如果构造参数过多，可能会导致构造函数臃肿
+  * 注意：如果只有一个构造函数，@Autowired注解可以省略
+
+```java
+//相当于构造函数，创建Controller对象的时候会自动执行这个函数
+private final UserService userService;
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+```
+
+* setter注入：
+* * 优点：保持了类的封装性，依赖关系更清晰
+  * 缺点：需要额外编写setter方法，增加了代码量
+
+```java
+//创建Controller对象的时候会自动执行这个函数
+private UserService userService;
+    @Autowired
+    public void setUserService(UserService userService){
+        this.userService = userService;
+    }
+```
+
+**@Autowired注解，默认是按照类型注入的**
+
+**如果存在多种相同类型的bean，将会报出如下错误**
+
+![image-20250508090003871](../image/image-20250508090003871.png)
+
+* 方案一：@Primary，会优先注入这个标记的![image-20250508090243940](../image/image-20250508090243940.png)
+
+* 方案二：@Qualifier，指定注入的是哪个bean![image-20250508090340734](../image/image-20250508090340734.png)
+
+* 方案三：@Resource，指定注入的bean的名称![image-20250508090441524](../image/image-20250508090441524.png)
+
+# 数据库
+
+* 数据库：DataBase（DB），是存储和管理数据的仓库。
+* 数据库管理系统：DataBase Management System（DBMS），操作和管理数据库的大型软件。
+* SQL：Structured Query Language，操作关系型数据库的编程语言，定义了一套操作关系型数据库统一标准
+
+# MySQL
+
+方括号括起来的是可选的，默认值是本机的3306端口
+
+```sql
+mysql -u用户名 -p密码 [-h数据库服务器IP地址 -p端口号]
+```
+
+* 关系型数据库：建立在关系模型基础上，由多张相互连接的二位表组成的数据库。
+* 特点：
+* * 使用表存储数据，格式统一，便于维护。
+  * 使用SQL语言操作，标准统一，使用方便，可用于复杂查询
+
+| 分类 |            全称            |                          说明                          |
+| :--: | :------------------------: | :----------------------------------------------------: |
+| DDL  |  Data Definition Language  |  数据定义语言，用来定义数据库对象（数据库、表、字段）  |
+| DML  | Data Manipulation Language |     数据操作语言，用来队数据库表中的数据进行增删改     |
+| DQL  |    Data Query Language     |         数据查询语言，用来查询数据库中表的记录         |
+| DCL  |   Data Control Language    | 数据控制语言，用来创建数据库用户，控制数据库的访问权限 |
+
+### DDL：
+
+![image-20250511114210829](../image/image-20250511114210829.png)
+
+### DDL表操作
+
+```sql
+-- DDL表操作
+-- 创建表
+create table user(
+    id int comment  'ID',
+    username varchar(50) comment 'username',
+    name varchar(10)  comment 'name',
+    age int comment 'age',
+    gender char(1) comment 'gender'
+)comment '用户信息表';
+```
+
+**约束**
+
+![image-20250511200850928](../image/image-20250511200850928.png)
+
+### 数据类型
+
+MYSQL的数据类型主要分为三类：数值类型，字符串类型，日期时间类型。
+
+* char(10)：固定占用10个字符空间；存储A，占用10个空间；存储ABC，占用10个空间；
+* varchar(10)：最多占用10个字符空间；存储A，占用1个空间；存储ABC，占用3个空间；
