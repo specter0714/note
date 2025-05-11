@@ -389,3 +389,69 @@ private UserService userService;
     }
 ```
 
+**@Autowired注解，默认是按照类型注入的**
+
+**如果存在多种相同类型的bean，将会报出如下错误**
+
+![image-20250508090003871](../image/image-20250508090003871.png)
+
+* 方案一：@Primary，会优先注入这个标记的![image-20250508090243940](../image/image-20250508090243940.png)
+
+* 方案二：@Qualifier，指定注入的是哪个bean![image-20250508090340734](../image/image-20250508090340734.png)
+
+* 方案三：@Resource，指定注入的bean的名称![image-20250508090441524](../image/image-20250508090441524.png)
+
+# 数据库
+
+* 数据库：DataBase（DB），是存储和管理数据的仓库。
+* 数据库管理系统：DataBase Management System（DBMS），操作和管理数据库的大型软件。
+* SQL：Structured Query Language，操作关系型数据库的编程语言，定义了一套操作关系型数据库统一标准
+
+# MySQL
+
+方括号括起来的是可选的，默认值是本机的3306端口
+
+```sql
+mysql -u用户名 -p密码 [-h数据库服务器IP地址 -p端口号]
+```
+
+* 关系型数据库：建立在关系模型基础上，由多张相互连接的二位表组成的数据库。
+* 特点：
+* * 使用表存储数据，格式统一，便于维护。
+  * 使用SQL语言操作，标准统一，使用方便，可用于复杂查询
+
+| 分类 |            全称            |                          说明                          |
+| :--: | :------------------------: | :----------------------------------------------------: |
+| DDL  |  Data Definition Language  |  数据定义语言，用来定义数据库对象（数据库、表、字段）  |
+| DML  | Data Manipulation Language |     数据操作语言，用来队数据库表中的数据进行增删改     |
+| DQL  |    Data Query Language     |         数据查询语言，用来查询数据库中表的记录         |
+| DCL  |   Data Control Language    | 数据控制语言，用来创建数据库用户，控制数据库的访问权限 |
+
+### DDL：
+
+![image-20250511114210829](../image/image-20250511114210829.png)
+
+### DDL表操作
+
+```sql
+-- DDL表操作
+-- 创建表
+create table user(
+    id int comment  'ID',
+    username varchar(50) comment 'username',
+    name varchar(10)  comment 'name',
+    age int comment 'age',
+    gender char(1) comment 'gender'
+)comment '用户信息表';
+```
+
+**约束**
+
+![image-20250511200850928](../image/image-20250511200850928.png)
+
+### 数据类型
+
+MYSQL的数据类型主要分为三类：数值类型，字符串类型，日期时间类型。
+
+* char(10)：固定占用10个字符空间；存储A，占用10个空间；存储ABC，占用10个空间；
+* varchar(10)：最多占用10个字符空间；存储A，占用1个空间；存储ABC，占用3个空间；
