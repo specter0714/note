@@ -307,6 +307,183 @@ public class UserController {
 * service：业务逻辑层，处理具体的业务逻辑。
 * dao：数据访问层（Data Access Object）（持久层），负责数据访问操作，包括数据的增、删、改、查。
 
+**controller层收到请求调用servece层，service层调用dao层，然后controller再响应数据给前端**
+
+# 三层架构的详解及代码
+
+* **controller包：**放置请求处理类
+
+* * **DeptController：**
+
+  * ```java
+    package com.itheima.controller;
+    
+    import com.itheima.pojo.Dept;
+    import com.itheima.pojo.Result;
+    import com.itheima.service.impl.DeptServiceImpl;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RequestMethod;
+    import org.springframework.web.bind.annotation.RestController;
+    
+    import java.util.List;
+    
+    @RestController
+    public class DeptController {
+    
+        private final DeptServiceImpl deptServiceImpl;
+        @Autowired
+        private DeptController(DeptServiceImpl deptServiceImpl){
+            this.deptServiceImpl = deptServiceImpl;
+        }
+        //@RequestMapping(value = "/depts", method = RequestMethod.GET)
+        @GetMapping("/depts")
+        public Result list(){
+    
+            System.out.println("查询全部部门的数据");
+            List<Dept> deptList = deptServiceImpl.findAll();
+            return Result.success(deptList);
+        }
+    }
+    ```
+
+* **mapper（dao）包：**放置数据处理类（如操作数据库）
+
+* * **DeptMapper：**
+
+  * ```java
+    package com.itheima.mapper;
+    
+    import com.itheima.pojo.Dept;
+    import org.apache.ibatis.annotations.Mapper;
+    import org.apache.ibatis.annotations.Select;
+    
+    import java.util.List;
+    
+    @Mapper
+    public interface DeptMapper {
+    
+        @Select("select id, name, create_time, update_time from dept order by update_time desc")
+        public List<Dept> findAll();
+    
+    }
+    ```
+
+* **service包：**放置业务逻辑接口和实现
+
+* * **DeptService：**
+
+  * ```java
+    package com.itheima.service;
+    
+    import com.itheima.pojo.Dept;
+    
+    import java.util.List;
+    
+    public interface DeptService {
+        public List<Dept> findAll();
+    }
+    ```
+
+* * **imlp包：**放置接口的实现类
+
+  * * **DeptServiceImpl：**
+
+    * ```java
+      package com.itheima.service.impl;
+      
+      import com.itheima.mapper.DeptMapper;
+      import com.itheima.pojo.Dept;
+      import com.itheima.service.DeptService;
+      import org.springframework.beans.factory.annotation.Autowired;
+      import org.springframework.stereotype.Service;
+      
+      import java.util.List;
+      
+      @Service
+      public class DeptServiceImpl implements DeptService {
+      
+      
+          private DeptMapper deptMapper;
+          @Autowired
+          private DeptServiceImpl(DeptMapper deptMapper){
+              this.deptMapper = deptMapper;
+          }
+          @Override
+          public List<Dept> findAll(){
+              return deptMapper.findAll();
+          }
+      }
+      ```
+
+* **pojo包：**放置封装好的实体类
+
+* * **Dept：**
+
+  * ```java
+    package com.itheima.pojo;
+    
+    import lombok.AllArgsConstructor;
+    import lombok.Data;
+    import lombok.NoArgsConstructor;
+    
+    import java.time.LocalDateTime;
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class Dept {
+        private Integer id;
+        private String name;
+        private LocalDateTime createTime;
+        private LocalDateTime updateTime;
+    }
+    ```
+
+  * **Result：**
+
+  * ```java
+    package com.itheima.pojo;
+    
+    import lombok.Data;
+    
+    import java.io.Serializable;
+    
+    /**
+     * 后端统一返回结果
+     */
+    @Data
+    public class Result {
+    
+        private Integer code; //编码：1成功，0为失败
+        private String msg; //错误信息
+        private Object data; //数据
+    
+        public static Result success() {
+            Result result = new Result();
+            result.code = 1;
+            result.msg = "success";
+            return result;
+        }
+    
+        public static Result success(Object object) {
+            Result result = new Result();
+            result.data = object;
+            result.code = 1;
+            result.msg = "success";
+            return result;
+        }
+    
+        public static Result error(String msg) {
+            Result result = new Result();
+            result.msg = msg;
+            result.code = 0;
+            return result;
+        }
+    }
+    ```
+
 # 分层解耦
 
 * **耦合**：衡量软件中各个层/各个模块的以来的关联程度
@@ -455,3 +632,529 @@ MYSQL的数据类型主要分为三类：数值类型，字符串类型，日期
 
 * char(10)：固定占用10个字符空间；存储A，占用10个空间；存储ABC，占用10个空间；
 * varchar(10)：最多占用10个字符空间；存储A，占用1个空间；存储ABC，占用3个空间；
+
+### DML-insert
+
+![image-20250512135932763](../image/image-20250512135932763.png)
+
+### DQL
+
+![image-20250512145657589](../image/image-20250512145657589.png)
+
+查询：![image-20250512151651860](../image/image-20250512151651860.png)
+
+```sql
+select name, entry_date from emp;
+```
+
+起别名:![image-20250512151614212](../image/image-20250512151614212.png)
+
+```sql
+select name as 姓名, entry_date as 入职日期 from emp;
+```
+
+别名中间有空格必须加引号包起来
+
+去重：
+
+```sql
+-- 4. 查询已有的员工关联了哪几种职位(不要重复) - distinct
+select distinct job from emp;
+```
+
+![image-20250512152449287](../image/image-20250512152449287.png)
+
+### set来声明变量
+
+```sql
+-- 6. 查询 入职日期 在 '2000-01-01' (包含) 到 '2010-01-01'(包含) 之间的员工信息
+set @begin = '2000-01-01';
+set @end = '2010-01-01';
+select * from emp where entry_date between @begin and @end;
+-- select * from emp where entry_date between '2000-01-01' and '2010-01-01';
+```
+
+```sql
+-- 9. 查询 姓名 为两个字的员工信息
+-- select * from emp where char_length(name) = 2;
+select * from emp where name like '__';
+```
+
+```sql
+SUBSTRING(str, pos, len)-- 从字符串 str 的第 pos 位置开始截取长度为 len 的子串。
+-- 10. 查询 姓 '李' 的员工信息
+-- select * from emp where substring(name, 1, 1) = '李';
+select * from emp where name like '李%';
+```
+
+```sql
+-- 11. 查询 姓名中包含 '二' 的员工信息
+select * from emp where name like '%二%';
+```
+
+### DQL分组查询
+
+| 函数  |   功能   |
+| :---: | :------: |
+| count | 统计数量 |
+|  max  |  最大值  |
+|  min  |  最小值  |
+|  avg  |  平均值  |
+|  sum  |   求和   |
+
+```sql
+-- 注意：所有的聚合函数不参与NULL的统计
+-- 1. 统计该企业员工数量
+-- count(字段)
+select count(username) from emp;
+-- count(*)
+select count(*) from emp;-- 开发推荐，做了优化，性能最高
+-- count(常量)
+select count(0) from emp;
+```
+
+**分组**：
+
+```sql
+-- 注意：分组之后，select 之后的字段列表不能随意书写，能写的一般是分组字段 + 聚合函数
+-- 1. 根据性别分组 , 统计男性和女性员工的数量
+select gender, count(*) from emp group by gender;
+```
+
+```sql
+-- 2. 先查询入职时间在 '2015-01-01' (包含) 以前的员工 , 并对结果根据职位分组 , 获取员工数量大于等于2的职位
+select job from emp where entry_date <= '2015-01-01' group by job having count(*) >= 2;
+```
+
+### DOL-排序查询
+
+![image-20250512173318840](../image/image-20250512173318840.png)
+
+**排序方式**：升序（asc），降序（desc）；默认为升序asc
+
+```sql
+-- 3. 根据 入职时间 对公司的员工进行 升序排序 ， 入职时间相同 , 再按照 更新时间 进行降序排序
+select * from emp order by entry_date asc, update_time desc;
+```
+
+### DQL-分页查询
+
+![image-20250512210032613](../image/image-20250512210032613.png)
+
+**说明**：
+
+* 起始索引从0开始
+* 分页查询是数据库的方言，不同的数据库有不同的实现，MYSQL中是LIMIT
+* 如起始索引为0，起始索引可以省略，直接简写为 limit 10
+
+```sql
+-- 3. 查询 第2页 员工数据, 每页展示5条记录
+select * from emp limit 5, 5;
+```
+
+# JDBC-介绍
+
+JDBC：（Java DataBase Connectivity），就是使用Java语言操作关系型数据库的一套API。
+
+```java
+package com.itheima;
+
+
+import org.junit.Test;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+public class jdbcTest {
+    /*
+
+    * */
+    @Test
+    public void testUpdate() throws ClassNotFoundException, SQLException {
+        //注册驱动
+        Class.forName("com.mysql.cj.jdbc.Driver");
+
+        //连接数据库
+        String url = "jdbc:mysql://localhost:3306/web01";
+        String username = "root";
+        String password = "Zouzixi060714";
+        Connection connection = DriverManager.getConnection(url, username, password);
+
+        //获取SQL语句的执行对象
+        Statement statement = connection.createStatement();
+
+        //执行SQL
+        int i = statement.executeUpdate("update user set age = 25 where id = 1");//DML
+        System.out.println("SQL执行完毕影响的行数：" + i);
+
+        //释放资源
+        statement.close();
+        connection.close();
+    }
+}
+```
+
+**项目中常用预编译sql语句，安全，性能高**
+
+```java
+@Test
+    public void testSelect(){
+        String url = "jdbc:mysql://localhost:3306/web01";
+        String username = "root";
+        String password = "Zouzixi060714";
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+        String sql = "select * from user where username = ? && password = ?";
+        try{
+            connection = DriverManager.getConnection(url, username, password);
+            statement =  connection.prepareStatement(sql);//预编译
+            String settingOne = "daqiao";
+            String settingTwo = "123456";
+            statement.setString(1, settingOne);
+            statement.setString(2, settingTwo);
+            resultSet = statement.executeQuery();
+            while(resultSet.next()){
+                Integer Id = resultSet.getInt("id");
+                String Username = resultSet.getString("username");
+                String Password = resultSet.getString("password");
+                String Name = resultSet.getString("name");
+                Integer Age = resultSet.getInt("age");
+                User user = new User(Id, Username, Password, Name, Age);
+                System.out.println(user);
+            }
+        }catch (Exception e){
+            throw new RuntimeException(e);
+        }finally {//关闭资源的程序写在finally里面，避免报错而没有释放资源，安全
+            try{
+                if(resultSet != null)resultSet.close();
+                if(statement != null)statement.close();
+                if(connection != null)connection.close();
+            }catch (Exception e){
+                throw new RuntimeException(e);
+            }
+        }
+    }
+```
+
+* JDBC程序执行DML语句和DQL语句
+* * DML语句：int rowsAffected = statement.executeUpdate();
+  * DQL语句：ResuiltSet rs = statement.executeQuery();
+* DQL语句执行完毕结果集ResuitSet解析
+* * resultSet.next()：光标向下移动一行
+  * resultSet.getXxx()：获取字段数据
+
+### 预编译SQL
+
+* 优势一：防止SQL植入，更安全（SQL注入：通过输入来修改事先定义好的SQL语句，以达到执行代码对服务器进行攻击的方法。）
+
+静态注入：
+
+```sql
+dashjdashkd
+' or '1'='1
+Preparing: select count(*) from emp where username = 'dashjdashkd' and password = '' or '1'='1'
+```
+
+预编译：
+
+```sql
+==>  Preparing: select count(*) from emp where username = ? and password = ?
+==> Parameters: asdhjlask(String), ' or '1'='1(String)
+```
+
+# MyBatis
+
+### 步骤
+
+* MyBatis是一款优秀的**持久层**框架，用于**简化JDBC**的开发
+
+1. **在application.properties文件中写数据库配置信息**
+
+```properties
+#加入下面这个条语句可以看到SQL的执行日志
+mybatis.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl
+
+spring.datasource.url=jdbc:mysql://localhost:3306/web01
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.username=root
+spring.datasource.password=1234
+```
+
+2. **创建接口（他的实现类通过Mapping注解，在运行时自动生成并存入IOC容器中）**
+
+```java
+@Mapper//应用程序在运行时，会自动地为该接口创建一个实现类（代理对象），并且会自动的将该实现类对象存入IOC容器中 - bean
+public interface UserMapper {
+    //查询所有用户
+    @Select("select * from user")
+    public List<User> findAll();
+}
+```
+
+3. 编写单元测试
+
+```java
+@SpringBootTest//SpringBoot单元测试的注解，当前测试类中的测试方法运行时会启动springboot项目-IOC容器
+class MybatisStartApplicationTests {
+    private final UserMapper userMapper;
+    @Autowired
+    public MybatisStartApplicationTests(UserMapper userMapper){
+        this.userMapper = userMapper;
+    }
+    @Test
+    public void testFindAll(){
+        List<User> userList = userMapper.findAll();
+        userList.forEach(System.out::println);
+    }
+}
+```
+
+### 删除
+
+```java
+ @Delete("delete from user where id = #{id}")//占位符#{id}，表示待会要传进来变量id
+ public void deleteById(Integer id);
+```
+
+### 新增
+
+**用对象里的成员变量传入占位符里**
+
+MyBatis会自动将对象的成员变量解析为SQL参数。在$@Insert$注解示例中，MyBatis会通过**对象属性映射**的方式，将User对象的成员变量注入到SQL语句中。
+
+* 参数解析机制
+* * 反射获取属性：通过对象的getter方法（或直接访问字段）获取属性值。
+  * 参数名映射：#{参数名}中的参数必须与对象的**属性名**一致（而非数据库里的字段名）
+  * 类型转换：自动将Java类型转换为数据库类型（如 Integer -> int）
+
+```java
+@Insert("insert into user(id, username, password, name, age) values(#{id}, #{username}, #{password}, #{name}, #{age})")
+public Integer insert(User user);
+    
+@Select("select count(1) from user")
+public Integer findSum();
+```
+
+```java
+@Test
+public void testInsert(){
+    Integer i = userMapper.insert(new User( userMapper.findSum() + 1,"zhouyu", "123456", "周瑜", 20));
+    System.out.println(i);
+}
+```
+
+### 查询
+
+**形参在编译之后是没有名字的，要给形参起名要用注解@Param**
+
+$但是$：基于官方骨架创建的springboot项目中，接口编译时会保留方法形参名，@Param注解可以省略
+
+```java
+@Select("select * from user where username = #{username} && password = #{password}")
+    public User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
+```
+
+
+
+# 数据库连接池
+
+* 数据库连接池是个容器，负责分配，管理数据库连接（connection）
+* 它允许应用程序重复使用一个现有的数据库连接，而不是新建一个
+* 释放空闲时间超过最大空闲时间的连接，来避免因为没有释放连接而引起的数据库连接泄露
+
+* 优势：
+* 1. 资源重用
+  2. 提升系统响应速度
+  3. 避免数据库连接遗漏
+
+标准接口：DataSource
+
+官方（sun）提供的数据库连接池接口，由第三方组织实现此接口
+
+功能：获取连接（Connection getConnection() throws SQLException;）
+
+* Druid（德鲁伊）
+* * Druid连接池是阿里巴巴开源的数据库连接池项目
+  * 功能强大，性能优秀，是Java语言最好的数据库连接池之一
+
+**spring-boot项目默认的连接池是$Hikari$， 如下操作可以改变使用的连接池**
+
+pom.xml文件中添加依赖
+
+```xml
+<dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>druid-spring-boot-starter</artifactId>
+      <version>1.2.19</version>
+</dependency>
+```
+
+在application.properties文件中添加配置
+
+```properties
+spring.datasource.type=com.alibaba.druid.pool.DruidDataSource
+```
+
+Mybatis中的 # 号, $ 号：
+
+| 符号   | 说明                                               | 场景                       | 优缺点         |
+| ------ | -------------------------------------------------- | -------------------------- | -------------- |
+| #{...} | 占位符。执行时，会将#{...}替换为?，生成预编译SQL   | 参数值传递                 | 安全，性能高   |
+| ${...} | 拼接符，直接将参数拼接在SQL语句中，存在SQL注入问题 | 表名，字段名动态设置时使用 | 不安全，性能低 |
+
+# XML映射配置
+
+* 在MyBatis中，既可以通过注解配置SQL语句，也可以通过XML配置文件配置SQL语句
+* 默认规则：
+* 1. XML映射文件的名称与Mapper接口名称一致，并且将XML映射文件和Mapper接口放置在相同包下（同名同包）
+  2. XML映射文件的namespace属性为Mapper接口全限定名一致
+  3. XML映射文件中sql语句的id和Mapper接口的方法名一致，并保持返回类型一致
+
+Mapper接口：
+
+```java
+@Mapper
+public interface UserMapper{
+    public List<User> findAll();
+}
+```
+
+XML映射文件：
+
+```xml
+<mapper namespace = "com.itheima.mapper.UserMapper">
+    <!-- resultType：查询返回的单条记录所封装的类型 -->
+	<select id = "findAll" resultType = "com.itheima.pojo.User">
+    	select id, username, password, name, age from user
+    </select>
+</mapper>
+```
+
+XML映射辅助配置：
+
+可以这样设置后将$UserMapper.xml$放在类路径（编译之后Java目录和resources目录会合并为一个类路径）下程序也可以正常运行
+
+```xml
+mybatis.mapper-locations=classpath:mapper/*.xml
+```
+
+# SpringBoot项目配置文件
+
+* SpringBoot项目提供了多种属性配置方式（properties,yaml,yml）
+
+$$application.properties$$文件：
+
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/web01
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.username=root
+spring.datasource.password=1234
+```
+
+$application.yaml / application.yml$文件：
+
+```yaml
+spring:
+	datesource:
+		driver-class-name: com.mysql.jdbc.Driver
+		url: jdbc:mysql://localhost:3306/web01
+		username: root
+		password: 1234
+```
+
+* 格式
+* * 数值前边必须有空格，作为分隔符
+  * 使用缩进表示层级关系，缩进时，不允许使用Tab键，只能用空格（idea中会自动将Tab转化为空格）
+  * 所进的空格数目不重要，只要相同层级的元素对齐即可
+  * \# 表示注释，从这个字符一直到行尾，都会被解析器忽略
+
+![image-20250514201533577](../image/image-20250514201533577.png)
+
+```yaml
+#定义对象
+user:
+  name: Tom
+  age: 18
+  gender: 男
+
+#定义数组/List/Set集合
+hobby:
+  - Java
+  - Game
+  - Sport
+```
+
+**注意：在yml格式的配置文件中，如果配置项的值是以 0 开头，值需要使用 '' 引起来，因为以0开头在yml中表示8进制的数据 **
+
+```yaml
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+spring:
+  datasource:
+    type:  com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://localhost:3306/web01
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 1234
+  application:
+    name: mybatis_start
+```
+
+# Restful
+
+* REST（Representational State Transfer），表述性状态转换，他是一种软件架构风格。
+
+![image-20250514212331038](../image/image-20250514212331038.png)
+
+![image-20250514213143691](../image/image-20250514213143691.png)
+
+1. REST式风格，是约定方式，约定不是规定，可以打破
+2. 描述功能模块通常使用复数形式（加s），表示此类资源，而非单个资源。如：users、books
+
+# RequestMapping注解的子注解
+
+**GetMapping, DeleteMapping, PostMapping, PutMapping**
+
+**下面这两个注解的作用相同**
+
+```java
+@RequestMapping(value = "/depts", method = RequestMethod.GET)
+@GetMapping("/depts")
+```
+
+# 数据封装
+
+* 手动结果映射：通过$@Results$和$@Result$进行手动结果映射。
+
+```java
+//数据库表中的字段名写在columbn，实体类中的成员变量名写在property
+@Results({
+            @Result(column = "create_time", property = "createTime"),
+            @Result(column = "update_time", property = "updateTime")
+    })
+    @Select("select id, name, create_time, update_time from dept order by update_time desc")
+    public List<Dept> findAll();
+```
+
+* 起别名：在SQL语句中，对不一样的字段名起别名，别名和实体类属性名一样
+
+```java
+@Select("select id, name, create_time createTime, update_time updateTime from dept order by update_time desc")
+public List<Dept> findAll();
+```
+
+* 开启驼峰命名：如果字段名与属性名符合驼峰命名规则，mybatis会自动通过驼峰命名规则映射（推荐）
+
+```yml
+mybatis:
+  configuration:
+  	map-underscore-to-camel-case: true
+```
+
