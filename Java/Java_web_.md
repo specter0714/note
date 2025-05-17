@@ -958,6 +958,12 @@ $但是$：基于官方骨架创建的springboot项目中，接口编译时会�
     public User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
 ```
 
+### 更新
+
+```sql
+update dept set name = #{name}, update_time = #{updateTime} where id = #{id}
+```
+
 
 
 # 数据库连接池
@@ -1150,7 +1156,7 @@ spring:
 public List<Dept> findAll();
 ```
 
-* 开启驼峰命名：如果字段名与属性名符合驼峰命名规则，mybatis会自动通过驼峰命名规则映射（推荐）
+* 开启驼峰命名：如果字段名与属性名符合驼峰命名规则，mybatis会自动通过驼峰命名规则映射（推荐），要求：（xxx_abc -> xxxAbc）
 
 ```yml
 mybatis:
@@ -1158,3 +1164,231 @@ mybatis:
   	map-underscore-to-camel-case: true
 ```
 
+# Controller接收参数
+
+### 接收URL中的查询参数
+
+* 方式一：通过原始的 HttpServletRequest 对象获取请求参数
+
+```java
+@DeleteMapping("/depts")
+public Result delete(HttpServletQuest request){
+    String idStr = request.getParamenter("id");
+    Integer id = Integer.parseInt(idStr);
+    System.out.println("根据ID删除部门：" + id);
+    deptServiceImpl.delete();
+    return Result.success();
+}
+```
+
+* 方式二：通过Sring提供的 @RequestParam 注解，将请求参数绑定给方法形参。
+
+```java
+@DeleteMapping("/depts")
+public Result delete(@RequestParam("id") Integer deptId){
+    System.out.println("根据ID删除部门：" + deptId);
+    deptServiceImpl.delete();
+    return Result.success();
+}
+```
+
+* 方式三：如果请求参数名与形参变量名相同，直接定义方法形参即可接受（省略@RequestParam）
+
+```java
+@DeleteMapping("/depts")
+public Result delete(Integer id){
+    System.out.println("根据ID删除部门：" + id);
+    deptServiceImpl.delete(id);
+    return Result.success();
+}
+```
+
+**注意：一旦加了@RequestParam注解，该参数必须传递，因为默认required为true，如果是可传可不传，就把required设置为false**
+
+### 接收json格式的请求体参数
+
+**POST /depts {"name":"教研部"}
+
+* JSON格式的参数，通常会使用一个实体对象进行接收。
+* 规则：JSON数据的**键名**与方法形参的**对象的属性名**相同，并需要**@RequestBody**注解标识。
+
+```java
+@PostMapping("/depts")
+public Result insert(@RequestBody Dept dept){
+    System.out.println("插入" + dept.getName());
+    deptService.insert(dept.getName());
+    return Result.success();
+}
+```
+
+### 接收请求参数（路径参数）
+
+**GET  /depts/{id}**（假如id=1，为 /depts/1）
+
+* 路径参数：通过URL直接传递参数，使用{...}来标识该路径参数，需要使用$@PathVariable$获取
+
+```java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable("id")Integer deptId){
+    System.out.println("根据部门ID查询部门数据：" + deptId);
+    Dept dept = deptService.getInfo(deptId);
+    return Result.success(dept);
+}
+```
+
+当参数名与路径参数的参数名一致时可以这样写
+
+```java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable Integer id){
+    System.out.println("根据部门ID查询部门数据：" + id);
+    Dept dept = deptService.getInfo(id);
+    return Result.success(dept);
+}
+```
+
+* 在URL中可以携带多个路径参数，如：depts/1/0
+
+```java
+@GetMapping("depts/{id}/{sta}")
+public Result getInfo(@PathVariable Integer id, @PathVariable Integer sta){
+    //...
+}
+```
+
+**相同的路径可以抽取到类上**
+
+<img src="../image/image-20250517092417765.png" alt="image-20250517092417765" style="zoom:80%;" />
+
+# 当前时间的获取和格式转换
+
+```java
+//获取当前时间（格式为yyyy-MM-ddTHH:mm:ss）
+LocalDateTime timeNow = LocalDateTime.now();
+//设置需要转换成的格式（DateTimeFormatter是一个可以自定义的时间格式类）
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+//根据这个格式转换成字符串
+String formatterTimeNow = timeNow.format(formatter);
+```
+
+# 日志技术
+
+* JUL：这是JavaSE平台提供的官方日志框架，也被称为JUL。配置相对简单，但不够灵活，性能较差
+* Log4j：一个流行的日志框架，提供了灵活的配置选项，支持多种输出目标
+* Logback：基于Log4j升级而来，提供了更多的功能和配置选项，性能优于Log4j
+* Slf4j（Simple Logging Dacede for Java）：简单日志门面，提供了一套日志操作的标准接口及抽象类，允许运用程序使用不同的底层日志框架（它没有实现，他只是规范，它的实现靠Log4j，Logback 等等）
+
+入门程序：
+
+```java
+public class LogTest {
+    private static final Logger log = LoggerFactory.getLogger(LogTest.class);
+
+    @Test
+    public void testLog(){
+        log.debug("开始计算...");
+        int sum = 0;
+        int[] nums = {1, 5, 3, 2, 1, 4, 5, 4, 6, 7, 4, 34, 2, 23};
+        for (int num : nums) {
+            sum += num;
+        }      
+        log.info("计算结果为：" + sum);
+        log.info("计算结果为：{}", sum);//避免了字符串的拼接
+        log.info("结束计算...");
+    }
+}
+```
+
+**在类上放写一个注解$@Slf4j$就可以不定义Logger对象**
+
+```java
+@Slf4j
+public class LogTest {
+    @Test
+    public void testLog(){
+        log.debug("开始计算...");
+        int sum = 0;
+        int[] nums = {1, 5, 3, 2, 1, 4, 5, 4, 6, 7, 4, 34, 2, 23};
+        for (int num : nums) {
+            sum += num;
+        }
+        log.info("计算结果为：" + sum);
+        log.info("结束计算...");
+    }
+}
+```
+
+
+
+### 配置文件
+
+* 配置文件名：logback.xml
+* 该配置文件是对Logback日志框架输出的日志进行控制的，可以来配置输出的格式、位置及日志开关等。
+* 常用的两种输出日志的位置：控制台、系统文件
+
+```xml
+<!-- 控制台输出 -->
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%logger显示日志记录器的名称， %msg表示日志消息，%n表示换行符 -->
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+    </encoder>
+</appender>
+```
+
+```xml
+<!-- 系统文件输出 -->
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <!-- 日志文件输出的文件名, %i表示序号 -->
+        <FileNamePattern>D:/tlias-%d{yyyy-MM-dd}-%i.log</FileNamePattern>
+        <!-- 最多保留的历史日志文件数量 -->
+        <MaxHistory>30</MaxHistory>
+        <!-- 最大文件大小，超过这个大小会触发滚动到新文件，默认为 10MB -->
+        <maxFileSize>10MB</maxFileSize>
+</rollingPolicy>
+	<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%msg表示日志消息，%n表示换行符 -->
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+    </encoder>
+</appender><!-- 系统文件输出 -->
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">...</appender>
+```
+
+* 开启日志（ALL），关闭日志（OFF）
+
+```xml
+<root level="ALL">
+	<appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+### 日志级别
+
+**日志级别指的是日志信息的类型，日志都会分级别，常见的日志级别如下（级别由低到高）：**
+
+| 日志级别 | 说明                                                         |
+| -------- | ------------------------------------------------------------ |
+| trace    | 追踪，记录程序运行轨迹【使用很少】                           |
+| debug    | 调试，记录程序调试过程中的信息，实际应用中一般将其视为最低级别【使用较多】 |
+| info     | 记录一般信息，描述程序运行的关键事件，如：网络连接、io操作【使用较多】 |
+| warn     | 警告信息，记录潜在有害的情况【使用较多】                     |
+| error    | 错误信息【使用较多】                                         |
+
+**可以在配置文件中，灵活的控制输出那些类型的日志（大于等于配置的日志级别的日志才会输出）**
+
+```xml
+<root level="info">
+	<appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+# 多表关系
+
+* 项目开发中，在进行数据库表结构设计时，会根据业务需求及业务模块之间的关系，分析并设计表结构。由于业务之间相互关联，所以各个表结构之间也存在着各种联系。
+* 多表关系分为三种：
+* * 一对多（多对一）
+  * 一对一
+  * 多对多
