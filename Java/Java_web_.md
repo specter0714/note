@@ -958,6 +958,12 @@ $但是$：基于官方骨架创建的springboot项目中，接口编译时会�
     public User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
 ```
 
+### 更新
+
+```sql
+update dept set name = #{name}, update_time = #{updateTime} where id = #{id}
+```
+
 
 
 # 数据库连接池
@@ -1150,11 +1156,433 @@ spring:
 public List<Dept> findAll();
 ```
 
-* 开启驼峰命名：如果字段名与属性名符合驼峰命名规则，mybatis会自动通过驼峰命名规则映射（推荐）
+* 开启驼峰命名：如果字段名与属性名符合驼峰命名规则，mybatis会自动通过驼峰命名规则映射（推荐），要求：（xxx_abc -> xxxAbc）
 
 ```yml
 mybatis:
   configuration:
   	map-underscore-to-camel-case: true
+```
+
+# Controller接收参数
+
+### 接收URL中的查询参数
+
+* 方式一：通过原始的 HttpServletRequest 对象获取请求参数
+
+```java
+@DeleteMapping("/depts")
+public Result delete(HttpServletQuest request){
+    String idStr = request.getParamenter("id");
+    Integer id = Integer.parseInt(idStr);
+    System.out.println("根据ID删除部门：" + id);
+    deptServiceImpl.delete();
+    return Result.success();
+}
+```
+
+* 方式二：通过Sring提供的 @RequestParam 注解，将请求参数绑定给方法形参。
+
+```java
+@DeleteMapping("/depts")
+public Result delete(@RequestParam("id") Integer deptId){
+    System.out.println("根据ID删除部门：" + deptId);
+    deptServiceImpl.delete();
+    return Result.success();
+}
+```
+
+* 方式三：如果请求参数名与形参变量名相同，直接定义方法形参即可接受（省略@RequestParam）
+
+```java
+@DeleteMapping("/depts")
+public Result delete(Integer id){
+    System.out.println("根据ID删除部门：" + id);
+    deptServiceImpl.delete(id);
+    return Result.success();
+}
+```
+
+**注意：一旦加了@RequestParam注解，该参数必须传递，因为默认required为true，如果是可传可不传，就把required设置为false**
+
+### 接收json格式的请求体参数
+
+**POST /depts {"name":"教研部"}
+
+* JSON格式的参数，通常会使用一个实体对象进行接收。
+* 规则：JSON数据的**键名**与方法形参的**对象的属性名**相同，并需要**@RequestBody**注解标识。
+
+```java
+@PostMapping("/depts")
+public Result insert(@RequestBody Dept dept){
+    System.out.println("插入" + dept.getName());
+    deptService.insert(dept.getName());
+    return Result.success();
+}
+```
+
+### 接收请求参数（路径参数）
+
+**GET  /depts/{id}**（假如id=1，为 /depts/1）
+
+* 路径参数：通过URL直接传递参数，使用{...}来标识该路径参数，需要使用$@PathVariable$获取
+
+```java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable("id")Integer deptId){
+    System.out.println("根据部门ID查询部门数据：" + deptId);
+    Dept dept = deptService.getInfo(deptId);
+    return Result.success(dept);
+}
+```
+
+当参数名与路径参数的参数名一致时可以这样写
+
+```java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable Integer id){
+    System.out.println("根据部门ID查询部门数据：" + id);
+    Dept dept = deptService.getInfo(id);
+    return Result.success(dept);
+}
+```
+
+* 在URL中可以携带多个路径参数，如：depts/1/0
+
+```java
+@GetMapping("depts/{id}/{sta}")
+public Result getInfo(@PathVariable Integer id, @PathVariable Integer sta){
+    //...
+}
+```
+
+**相同的路径可以抽取到类上**
+
+<img src="../image/image-20250517092417765.png" alt="image-20250517092417765" style="zoom:80%;" />
+
+# 当前时间的获取和格式转换
+
+```java
+//获取当前时间（格式为yyyy-MM-ddTHH:mm:ss）
+LocalDateTime timeNow = LocalDateTime.now();
+//设置需要转换成的格式（DateTimeFormatter是一个可以自定义的时间格式类）
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+//根据这个格式转换成字符串
+String formatterTimeNow = timeNow.format(formatter);
+```
+
+# 日志技术
+
+* JUL：这是JavaSE平台提供的官方日志框架，也被称为JUL。配置相对简单，但不够灵活，性能较差
+* Log4j：一个流行的日志框架，提供了灵活的配置选项，支持多种输出目标
+* Logback：基于Log4j升级而来，提供了更多的功能和配置选项，性能优于Log4j
+* Slf4j（Simple Logging Dacede for Java）：简单日志门面，提供了一套日志操作的标准接口及抽象类，允许运用程序使用不同的底层日志框架（它没有实现，他只是规范，它的实现靠Log4j，Logback 等等）
+
+入门程序：
+
+```java
+public class LogTest {
+    private static final Logger log = LoggerFactory.getLogger(LogTest.class);
+
+    @Test
+    public void testLog(){
+        log.debug("开始计算...");
+        int sum = 0;
+        int[] nums = {1, 5, 3, 2, 1, 4, 5, 4, 6, 7, 4, 34, 2, 23};
+        for (int num : nums) {
+            sum += num;
+        }      
+        log.info("计算结果为：" + sum);
+        log.info("计算结果为：{}", sum);//避免了字符串的拼接
+        log.info("结束计算...");
+    }
+}
+```
+
+**在类上放写一个注解$@Slf4j$就可以不定义Logger对象**
+
+```java
+@Slf4j
+public class LogTest {
+    @Test
+    public void testLog(){
+        log.debug("开始计算...");
+        int sum = 0;
+        int[] nums = {1, 5, 3, 2, 1, 4, 5, 4, 6, 7, 4, 34, 2, 23};
+        for (int num : nums) {
+            sum += num;
+        }
+        log.info("计算结果为：" + sum);
+        log.info("结束计算...");
+    }
+}
+```
+
+
+
+### 配置文件
+
+* 配置文件名：logback.xml
+* 该配置文件是对Logback日志框架输出的日志进行控制的，可以来配置输出的格式、位置及日志开关等。
+* 常用的两种输出日志的位置：控制台、系统文件
+
+```xml
+<!-- 控制台输出 -->
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%logger显示日志记录器的名称， %msg表示日志消息，%n表示换行符 -->
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+    </encoder>
+</appender>
+```
+
+```xml
+<!-- 系统文件输出 -->
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <!-- 日志文件输出的文件名, %i表示序号 -->
+        <FileNamePattern>D:/tlias-%d{yyyy-MM-dd}-%i.log</FileNamePattern>
+        <!-- 最多保留的历史日志文件数量 -->
+        <MaxHistory>30</MaxHistory>
+        <!-- 最大文件大小，超过这个大小会触发滚动到新文件，默认为 10MB -->
+        <maxFileSize>10MB</maxFileSize>
+</rollingPolicy>
+	<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%msg表示日志消息，%n表示换行符 -->
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+    </encoder>
+</appender><!-- 系统文件输出 -->
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">...</appender>
+```
+
+* 开启日志（ALL），关闭日志（OFF）
+
+```xml
+<root level="ALL">
+	<appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+### 日志级别
+
+**日志级别指的是日志信息的类型，日志都会分级别，常见的日志级别如下（级别由低到高）：**
+
+| 日志级别 | 说明                                                         |
+| -------- | ------------------------------------------------------------ |
+| trace    | 追踪，记录程序运行轨迹【使用很少】                           |
+| debug    | 调试，记录程序调试过程中的信息，实际应用中一般将其视为最低级别【使用较多】 |
+| info     | 记录一般信息，描述程序运行的关键事件，如：网络连接、io操作【使用较多】 |
+| warn     | 警告信息，记录潜在有害的情况【使用较多】                     |
+| error    | 错误信息【使用较多】                                         |
+
+**可以在配置文件中，灵活的控制输出那些类型的日志（大于等于配置的日志级别的日志才会输出）**
+
+```xml
+<root level="info">
+	<appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+# 多表关系
+
+* 项目开发中，在进行数据库表结构设计时，会根据业务需求及业务模块之间的关系，分析并设计表结构。由于业务之间相互关联，所以各个表结构之间也存在着各种联系。
+* 多表关系分为三种：
+* * 一对多（多对一）
+  * 一对一
+  * 多对多
+
+### 外键约束
+
+* 可以在创建表时 或 表结构创建完成后，为字段添加外键约束
+
+```sql
+-- 创建表时指定
+create table 表名(
+	字段名 数据类型,
+    ...
+    [constraint] [外键名称] foreign key (外键字段名) references 主表 (字段名)
+);
+```
+
+```sql
+-- 建完表后，添加外键
+alter table 表名 add constraint 外键名称 foreign key (外键字段名) references 主表 (字段名);
+```
+
+以上为**物理外键**：
+
+* 概念：使用 foreign key 定义外键关联另外一张表。
+* 缺点：
+* 1. 影响增、删、改的效率（需要检查外键关系）。
+  2. 仅用于单节点数据库，不适用于分布式、集群场景。
+  3. 容易引发数据库的死锁问题，消耗性能
+
+**逻辑外键**：
+
+* 概念：在业务层逻辑中，解决外键关联。
+* 通过逻辑外键，就可以很方便的解决上述问题。
+
+### 一对多
+
+在子表设置外键
+
+### 一对一
+
+一对一关系，多用于单表拆分，将一张表的基础字段放在一张表中，其他字段放在另一张表中，以提升操作效率
+
+实现：在任意一方加入外键，关联另一方的主键，并且设置外键为唯一的（UNIQUE）
+
+### 多对多
+
+关系：一个学生可以选修多门课程，一门课程也可以提供多个学生选择
+
+实现：建立第三张中间表，中间表至少包含两个外键，分别关联两方的主键
+
+![image-20250517211630612](../image/image-20250517211630612.png)
+
+# 多表查询
+
+* 多表查询：指从多张表中查询数据。
+* 笛卡尔积：指在数学中，两个集合（A集合 和 B集合）的所有组合情况。
+
+```sql
+-- emp表有30条数据，dept表有5条
+select * from dept, emp;
+-- 这样查询出来有150条数据
+select * from dept, emp where dept_id = dept.id;
+-- 这样查询出来有30条数据
+```
+
+### 连接查询
+
+* 内连接：相当于查询A、B交集部分数据
+* 外连接：
+* * 左外连接：查询左表所有数据（包括两张表交集部分数据）
+  * 右外连接：查询右表所有数据（包括两张表交集部分数据）
+
+##### 内连接
+
+```sql
+-- 隐式内连接
+select 字段列表 from 表1, 表2 where 连接条件 ...;
+
+-- 显式内连接,[]中的表示可以省略
+select 字段列表 from 表1 [inner] join 表2 on 连接条件 。。。；
+```
+
+示例：
+
+```sql
+-- A. 查询所有员工的ID, 姓名 , 及所属的部门名称 (隐式、显式内连接实现)
+select emp.id, emp.name, dept.name from emp, dept where emp.dept_id = dept.id;
+
+select emp.id, emp.name, dept.name from emp inner join dept on emp.dept_id = dept.id;
+```
+
+**给表起别名**
+
+**注意：一旦为表起了别名，就要通过别名来指定字段名，而不能再使用表名**
+
+```sql
+select * from 表1 [as] 别名, 表2 [as] 别名 where ...;
+```
+
+##### 外连接
+
+```sql
+-- 左外连接
+select 字段列表 from 表1 left [outer] join 表2 on 连接条件 ...;
+
+-- 右外连接([]内的可省略)
+select 字段列表 from 表1 right [outer] join 表2 on 连接条件 ...;
+```
+
+示例
+
+```sql
+-- 查询员工表 所有 员工的姓名, 和对应的部门名称 (左外连接)
+select emp.name, dept.name from emp left outer join dept on emp.dept_id = dept.id;
+    
+-- 查询部门表 所有 部门的名称, 和对应的员工名称 (右外连接)
+select dept.name, emp.name from emp right outer join dept on emp.dept_id = dept.id;
+
+-- C. 查询工资 高于8000 的 所有员工的姓名, 和对应的部门名称 (左外连接)
+ select emp.name, dept.name from emp left outer join dept on emp.dept_id = dept.id where emp.salary > 8000;
+-- 后面加where才能使小于等于8000的不显示出来
+```
+
+
+
+### 子查询
+
+* 介绍：SQL语句中嵌套select语句，称为嵌套查询，又称子查询。
+
+* 形式：
+
+  ```sql
+  select * from t1 where column1 = (select column1 from t2 ...);
+  ```
+
+* 说明：子查询的外部语句可以是insert / update / delete / select 的任何一种，最常见的是select
+
+* 分类：
+
+* * 标量子查询：子查询返回的结果为单个值
+  * 列子查询：子查询返回的结果为一列
+  * 行子查询：子查询返回的结果为一行
+  * 表子查询：子查询返回的结果为多行多列
+
+##### 标量子查询
+
+```sql
+-- 查询入职时间最早的员工信息
+select * from emp where entry_date = (select min(entry_date) from emp);
+```
+
+##### 列子查询
+
+```sql
+-- 查询“教研部”和“咨询部”的所有员工信息
+select * from emp where dept_id in (select id from dept where name = '教研部' or '咨询部');
+```
+
+##### 行子查询
+
+```sql
+-- 查询与“李忠”的薪资及职位都相同的员工信息
+select * from emp where salary = (select salary from emp where name = '李忠') && job = (select job from emp where name = '李忠');
+-- 下面是上面的优化
+select * from emp where (salary, job) = (select salary, job from emp where name = '李忠');
+```
+
+##### 表子查询
+
+```sql
+-- 获取每个部门中薪资最高的员工信息
+select * from emp where salary in (select max(salary) from emp group by  dept_id) && dept_id is not null;
+
+-- 下面这个的效果是一样的，但使用的是多表查询
+select * from emp, (select dept_id, max(salary) max_sal from emp group by dept_id) st where emp.dept_id = st.dept_id && emp.salary = st.max_sal;
+```
+
+# 查询的整体混合运用实例
+
+```sql
+-- 查询 “教研部” 性别为 男， 且在 “2011-05-01” 之后入职的员工信息。
+select * from emp where gender = 1 && entry_date > '2011-05-01' && dept_id = (select id from dept where name = '教研部');
+
+-- 查询工资 低于公司平均工资的 且 性别为男 的员工信息。
+select * from emp where salary < (select avg(salary) from emp) && gender = 1;
+
+-- 查询部门人数超过 10 人的部门名称。
+select dept.name from dept, (select dept_id, count(1) num from emp group by dept_id) st where st.num > 10  && dept.id = st.dept_id;
+
+-- 查询再 “2010-05-01” 后入职，且薪资高于 10000 的 “教研部” 员工信息，并根据薪资倒序排序。
+select * from emp where dept_id = (select id from dept where name = '教研部') && entry_date > '2010-05-01' && salary > 10000 order by salary desc;
+
+-- 查询工资 低于本部门平均工资的员工信息。
+select emp.* from emp, (select dept_id, avg(salary) num from emp group by dept_id) st where emp.salary < st.num && emp.dept_id = st.dept_id;
 ```
 
