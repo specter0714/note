@@ -1392,3 +1392,197 @@ public class LogTest {
 * * 一对多（多对一）
   * 一对一
   * 多对多
+
+### 外键约束
+
+* 可以在创建表时 或 表结构创建完成后，为字段添加外键约束
+
+```sql
+-- 创建表时指定
+create table 表名(
+	字段名 数据类型,
+    ...
+    [constraint] [外键名称] foreign key (外键字段名) references 主表 (字段名)
+);
+```
+
+```sql
+-- 建完表后，添加外键
+alter table 表名 add constraint 外键名称 foreign key (外键字段名) references 主表 (字段名);
+```
+
+以上为**物理外键**：
+
+* 概念：使用 foreign key 定义外键关联另外一张表。
+* 缺点：
+* 1. 影响增、删、改的效率（需要检查外键关系）。
+  2. 仅用于单节点数据库，不适用于分布式、集群场景。
+  3. 容易引发数据库的死锁问题，消耗性能
+
+**逻辑外键**：
+
+* 概念：在业务层逻辑中，解决外键关联。
+* 通过逻辑外键，就可以很方便的解决上述问题。
+
+### 一对多
+
+在子表设置外键
+
+### 一对一
+
+一对一关系，多用于单表拆分，将一张表的基础字段放在一张表中，其他字段放在另一张表中，以提升操作效率
+
+实现：在任意一方加入外键，关联另一方的主键，并且设置外键为唯一的（UNIQUE）
+
+### 多对多
+
+关系：一个学生可以选修多门课程，一门课程也可以提供多个学生选择
+
+实现：建立第三张中间表，中间表至少包含两个外键，分别关联两方的主键
+
+![image-20250517211630612](../image/image-20250517211630612.png)
+
+# 多表查询
+
+* 多表查询：指从多张表中查询数据。
+* 笛卡尔积：指在数学中，两个集合（A集合 和 B集合）的所有组合情况。
+
+```sql
+-- emp表有30条数据，dept表有5条
+select * from dept, emp;
+-- 这样查询出来有150条数据
+select * from dept, emp where dept_id = dept.id;
+-- 这样查询出来有30条数据
+```
+
+### 连接查询
+
+* 内连接：相当于查询A、B交集部分数据
+* 外连接：
+* * 左外连接：查询左表所有数据（包括两张表交集部分数据）
+  * 右外连接：查询右表所有数据（包括两张表交集部分数据）
+
+##### 内连接
+
+```sql
+-- 隐式内连接
+select 字段列表 from 表1, 表2 where 连接条件 ...;
+
+-- 显式内连接,[]中的表示可以省略
+select 字段列表 from 表1 [inner] join 表2 on 连接条件 。。。；
+```
+
+示例：
+
+```sql
+-- A. 查询所有员工的ID, 姓名 , 及所属的部门名称 (隐式、显式内连接实现)
+select emp.id, emp.name, dept.name from emp, dept where emp.dept_id = dept.id;
+
+select emp.id, emp.name, dept.name from emp inner join dept on emp.dept_id = dept.id;
+```
+
+**给表起别名**
+
+**注意：一旦为表起了别名，就要通过别名来指定字段名，而不能再使用表名**
+
+```sql
+select * from 表1 [as] 别名, 表2 [as] 别名 where ...;
+```
+
+##### 外连接
+
+```sql
+-- 左外连接
+select 字段列表 from 表1 left [outer] join 表2 on 连接条件 ...;
+
+-- 右外连接([]内的可省略)
+select 字段列表 from 表1 right [outer] join 表2 on 连接条件 ...;
+```
+
+示例
+
+```sql
+-- 查询员工表 所有 员工的姓名, 和对应的部门名称 (左外连接)
+select emp.name, dept.name from emp left outer join dept on emp.dept_id = dept.id;
+    
+-- 查询部门表 所有 部门的名称, 和对应的员工名称 (右外连接)
+select dept.name, emp.name from emp right outer join dept on emp.dept_id = dept.id;
+
+-- C. 查询工资 高于8000 的 所有员工的姓名, 和对应的部门名称 (左外连接)
+ select emp.name, dept.name from emp left outer join dept on emp.dept_id = dept.id where emp.salary > 8000;
+-- 后面加where才能使小于等于8000的不显示出来
+```
+
+
+
+### 子查询
+
+* 介绍：SQL语句中嵌套select语句，称为嵌套查询，又称子查询。
+
+* 形式：
+
+  ```sql
+  select * from t1 where column1 = (select column1 from t2 ...);
+  ```
+
+* 说明：子查询的外部语句可以是insert / update / delete / select 的任何一种，最常见的是select
+
+* 分类：
+
+* * 标量子查询：子查询返回的结果为单个值
+  * 列子查询：子查询返回的结果为一列
+  * 行子查询：子查询返回的结果为一行
+  * 表子查询：子查询返回的结果为多行多列
+
+##### 标量子查询
+
+```sql
+-- 查询入职时间最早的员工信息
+select * from emp where entry_date = (select min(entry_date) from emp);
+```
+
+##### 列子查询
+
+```sql
+-- 查询“教研部”和“咨询部”的所有员工信息
+select * from emp where dept_id in (select id from dept where name = '教研部' or '咨询部');
+```
+
+##### 行子查询
+
+```sql
+-- 查询与“李忠”的薪资及职位都相同的员工信息
+select * from emp where salary = (select salary from emp where name = '李忠') && job = (select job from emp where name = '李忠');
+-- 下面是上面的优化
+select * from emp where (salary, job) = (select salary, job from emp where name = '李忠');
+```
+
+##### 表子查询
+
+```sql
+-- 获取每个部门中薪资最高的员工信息
+select * from emp where salary in (select max(salary) from emp group by  dept_id) && dept_id is not null;
+
+-- 下面这个的效果是一样的，但使用的是多表查询
+select * from emp, (select dept_id, max(salary) max_sal from emp group by dept_id) st where emp.dept_id = st.dept_id && emp.salary = st.max_sal;
+```
+
+# 查询的整体混合运用实例
+
+```sql
+-- 查询 “教研部” 性别为 男， 且在 “2011-05-01” 之后入职的员工信息。
+select * from emp where gender = 1 && entry_date > '2011-05-01' && dept_id = (select id from dept where name = '教研部');
+
+-- 查询工资 低于公司平均工资的 且 性别为男 的员工信息。
+select * from emp where salary < (select avg(salary) from emp) && gender = 1;
+
+-- 查询部门人数超过 10 人的部门名称。
+select dept.name from dept, (select dept_id, count(1) num from emp group by dept_id) st where st.num > 10  && dept.id = st.dept_id;
+
+-- 查询再 “2010-05-01” 后入职，且薪资高于 10000 的 “教研部” 员工信息，并根据薪资倒序排序。
+select * from emp where dept_id = (select id from dept where name = '教研部') && entry_date > '2010-05-01' && salary > 10000 order by salary desc;
+
+-- 查询工资 低于本部门平均工资的员工信息。
+select emp.* from emp, (select dept_id, avg(salary) num from emp group by dept_id) st where emp.salary < st.num && emp.dept_id = st.dept_id;
+```
+
