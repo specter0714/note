@@ -1586,3 +1586,276 @@ select * from emp where dept_id = (select id from dept where name = '教研部')
 select emp.* from emp, (select dept_id, avg(salary) num from emp group by dept_id) st where emp.salary < st.num && emp.dept_id = st.dept_id;
 ```
 
+# PageHelper
+
+* PageHelper是第三方提供的在Mybatis框架中用来实现分页的插件，用来简化分页操作，提高开发效率
+
+![image-20250520155951578](../image/image-20250520155951578.png)
+
+* 使用步骤：
+* 1. 引入PageHelper的依赖
+  2. 定义Mapper接口的查询方法（无需考虑分页）
+  3. 在Service方法中实现分页查询
+
+Mapper:
+
+```java
+@Select("select emp.*, dept.name deptName from emp left outer join dept on emp.dept_id = dept.id order by emp.update_time desc")
+    public Page<Emp> list();
+```
+
+Service:
+
+EmpService:
+
+```java
+public interface EmpService<T> {
+    public PageResult<T> page(Integer page, Integer pageSize);
+}
+```
+
+EmpServiceImpl:
+
+```java
+//根据PageHelper分页查询
+    @Override
+    public PageResult<Emp> page(Integer page, Integer pageSize) {
+        //设置分页参数
+        PageHelper.startPage(page, pageSize);
+        //执行查询
+        Page<Emp> p = empMapper.list();
+        //解析查询结果，封装
+        return new PageResult<Emp>(p.getTotal(), p.getResult());
+    }
+```
+
+* PageHelper实现机制
+* 1. select count(0) from emp e ...
+  2. select ... from emp e ...
+* 注意事项：
+* 1. SQL语句结尾不要加分号（；）
+  2. PageHelper只会对紧跟在其后的第一条SQL语句进行分页处理
+
+# 动态SQL
+
+* 随着用户的输入或外部条件的变化而变化的SQL语句，我们称为动态SQL
+
+* \<if>：判断条件是否成立，如果条件为true，则拼接SQL
+
+```xml
+<if test="gender != null">
+	and emp.gender = #{gender}
+</if>
+```
+
+* \<where>：根据查询条件，来生成where关键字，并会自动去除条件前面多余的and和or
+
+```xml
+<select id="list" resultType="com.itheima.pojo.Emp">
+   select emp.*, dept.name from emp left outer join dept on emp.dept_id = dept.id
+           <where>
+              <if test="name != null and name != ''">
+                  and emp.name like concat('%', #{name}, '%')
+              </if>
+              <if test="gender != null">
+                  and gender = #{gender}
+              </if>
+              <if test="begin != null and end != null">
+                  and emp.entry_date between #{begin} and #{end}
+              </if>
+             </where>>order by emp.update_time desc
+</select>
+```
+
+# 新增员工-批量保存工作经历
+
+动态SQL：\<foreach>
+
+* \<foreach>属性说明：
+* 1. collection：集合名称
+  2. item：集合遍历出来的元素/项
+  3. separator：每一次遍历使用的分隔符
+  4. open：遍历开始前拼接的片段
+  5. close：遍历结束后拼接的片段
+
+# 主键返回
+
+```java
+@Options(useGeneratedKeys = true, keyProperty = "id")//获取到生成的主键--主键返回
+    @Insert(".....")
+    public void insert(Emp emp);
+```
+
+# 事务管理
+
+保存员工基本信息成功了，而保存工作经历失败了，这是不行的，因为这属于一个业务操作，如果保存员工信息成功了，保存工作经历信息失败了，就会造成数据库数据的不完整，不一致。
+
+**概念**：事务，是一组操作的集合，它是一个不可分割的工作单位。事物会把所有的操作作为一个整体一起向系统提交或撤销操作请求，即这些操作要么同时成功，要么同时失败。
+
+* 事务控制主要三步操作：开启事务，提交事务/回滚事务
+
+```sql
+start transaction; / begin;
+-- 1.保存员工基本信息
+insert into emp values(....);
+-- 2.保存员工的工作经历信息
+insert into emp_expr(...) values(...), (...);
+
+-- 提交事务（全部成功） / 回滚事务（有一个失败）
+commit; / rollback;
+```
+
+Spring事务管理-控制事务
+
+* 注解：@Transactional
+* 作用：将当前方法交给spring进行事务管理，方法执行前，开启事务；成功执行完毕，提交事务；出现异常，回滚事务
+* 位置，业务（service）层得方法上、类上、接口上
+
+方法上：这个方法需要进行事务控制（推荐）
+
+实现类上：这个类中的所有方法需要进行事务控制
+
+接口上：这个接口所有的实现类中的所有的方法需要进行事务控制
+
+**注意**：Spring在进行AOP代理时（如@Transactional），默认需要一个无参构造函数，但是使用了自定义构造函数之后如果没有显式定义无参构造函数，可能会导致代理创建失败。
+
+比如使用了@Autowired的构造器注入：
+
+```java
+private EmpMapper empMapper;
+private EmpExprMapper empExprMapper;
+@Autowired
+public EmpServiceImpl(EmpMapper empMapper, EmpExprMapper empExprMapper){
+    this.empMapper = empMapper;
+    this.empExprMapper = empExprMapper;
+}
+
+
+public EmpServiceImpl() {//添加一个无参构造函数
+}
+@Transactional//事务管理的注解
+@Override
+public void save(Emp emp){
+    //1.保存员工基本信息
+    emp.setCreateTime(LocalDateTime.now());
+    emp.setUpdateTime(LocalDateTime.now());
+    empMapper.insert(emp);
+    //2.保存员工工作经历信息
+    List<EmpExpr> exprList = emp.getExprList();
+    if(!CollectionUtils.isEmpty(exprList)){
+        exprList.forEach(empExpr -> {
+            empExpr.setEmpId(emp.getId());
+        });
+        empExprMapper.insertBatch(exprList);
+    }
+}
+```
+
+### rollbackFor
+
+这个属性用于控制出现何种异常类型，回滚事务。
+
+```java
+@Transactional(rollbackFor = {Exception.class})//使出现所有异常都会回滚
+```
+
+**@Transactional的rollbackFor的默认是出现运行时异常RuntimeException才会回滚**
+
+### propagation
+
+事务传播行为：指的是当一个事务方法被另一个事务方法调用时，这个事务方法应该如何进行事务控制
+
+| 属性值        | 含义                                                         |
+| ------------- | ------------------------------------------------------------ |
+| REQUIRED      | 【默认值】需要事务，有则加入，无则创建新事务                 |
+| REQUIRES_NEW  | 需要新事务，无论有无，总是创建新事务                         |
+| SUPPORTS      | 支持事务，有则加入，无则在无事务状态中运行                   |
+| NOT_SUPPORTED | 不支持事务，在无事务状态下运行，如果当前存在已有事务，则挂起当前事务 |
+| MANDATORY     | 必须有事务，否则抛异常                                       |
+| NEVER         | 必须没事务，否则抛异常                                       |
+
+下面这个程序，功能为插入数据和记录日志，记录日志是无论插入成功与否都要记录，但是现在的方法empLogService.insertLog();，它没有加@Transactional注解，所以当这个save方法抛出异常时，它会回滚，所以往数据库里写入日志也会回滚，虽然在final之后，但是也无法执行写入。
+
+所以必须要在insertLog方法的本体上面加一个注解@Transactional(propagation = Propagation.REQUIRES_NEW)（意思是，创建一个新的事务，需要在一个新的事务中运行），所以它运行完毕之后直接久已经commit了，就算save方法回滚也并不会影响
+
+```java
+@Transactional(rollbackFor = {Exception.class})//事务管理的注解 - 默认出现运行时异常RuntimeException才会回滚
+@Override
+public void save(Emp emp) throws Exception {
+    try {
+        //1.保存员工基本信息
+        emp.setCreateTime(LocalDateTime.now());
+        emp.setUpdateTime(LocalDateTime.now());
+        empMapper.insert(emp);
+        //2.保存员工工作经历信息
+        int i = 1 / 0;
+        List<EmpExpr> exprList = emp.getExprList();
+        if(!CollectionUtils.isEmpty(exprList)){
+            exprList.forEach(empExpr -> {
+                empExpr.setEmpId(emp.getId());
+            });
+            empExprMapper.insertBatch(exprList);
+        }
+    } finally {
+        //记录操作日志
+        EmpLog empLog = new EmpLog(null, LocalDateTime.now(), "新增员工：" + emp);
+        empLogService.insertLog(empLog);
+    }
+}
+```
+
+### 常见的传播行为
+
+* REQUIRED：大部分场景（有事务我就加入，没有事务我就创建一个）
+* REQUIRES_NEW：希望两个方法在独立的事务中运行，互不影响（有没有事务我都要创建一个独立的自己的事务）
+
+### 事务的四大特性（ACID）
+
+原子性（Atomicity）：事务是不可分割的最小单元，要么全部成功，要么全部失败
+
+一致性（Consistency）：事务完成时，必须使所有的数据都保持一致状态
+
+隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的独立环境下运行
+
+持久性（Durability）：事务一旦提交或回滚，它对数据库中的数据的改变就是永久的
+
+# 文件上传
+
+html页面
+
+这个属性很重要enctype，没有写这属性的话之后传入文件的名称，有了这个属性才会传入文件的内容
+
+```html
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="submit" value="提交">
+</form>
+```
+
+SpringBoot上传文件屎，默认的最大大小为1MB
+
+### 阿里云OSS参数配置化
+
+**将一些需要灵活变化的参数，配置在配置文件中，然后通过@Value注解来注入外部配置的属性。**
+
+```yml
+aliyun:
+	oss:
+		endpoint: https//oss-cn-beijing.aliyuncs.com
+		bucketName: web-true
+		region: cn.beijing
+```
+
+使用@Value注解来注入
+
+```java
+@Component
+public class AliyunOSSOperator{
+    @Value("${aliyun.oss.endpoint}")
+    private String endpoint;
+    @Value("${aliyun.oss.backetName}")
+    private String bucketName;
+    @Value("${aliyun.oss.region}")
+    private String region;
+}
+```
+
