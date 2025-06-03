@@ -1029,7 +1029,7 @@ public interface UserMapper{
 }
 ```
 
-XML映射文件：
+XML映射文件：**resultType 是表示单个返回的类型**
 
 ```xml
 <mapper namespace = "com.itheima.mapper.UserMapper">
@@ -1039,6 +1039,10 @@ XML映射文件：
     </select>
 </mapper>
 ```
+
+### XML映射文件中的返回值自定义：
+
+<img src="../image/image-20250527135327855.png" alt="image-20250527135327855" style="zoom: 67%;" /><img src="../image/image-20250527135405793.png" alt="image-20250527135405793" style="zoom:80%;" /><img src="../image/image-20250527135446717.png" alt="image-20250527135446717" style="zoom:80%;" />
 
 XML映射辅助配置：
 
@@ -1202,6 +1206,34 @@ public Result delete(Integer id){
     return Result.success();
 }
 ```
+
+* 方式四：用类接收
+
+```java
+//有多个参数，先封装一个类，然后用类来接收
+```
+
+* 特殊情况1：url参数：DELETE /emps?ids=1,2,3
+
+* * 方式一：直接用数组接收
+
+    ```java
+    @DeleteMapping
+    public Result delete(Integer[] ids){
+        log.info("根据id删除员工信息:" + ids);
+        return Result.success();
+    }
+    ```
+
+  * 方式二：通过集合来接收
+
+    ```java
+    @DeleteMapping
+    public Result delete(Integer[] ids){
+    	log.info("根据id删除员工信息:" + ids);
+    	return Result.success();
+    
+    ```
 
 **注意：一旦加了@RequestParam注解，该参数必须传递，因为默认required为true，如果是可传可不传，就把required设置为false**
 
@@ -1845,7 +1877,7 @@ aliyun:
 		region: cn.beijing
 ```
 
-使用@Value注解来注入
+##### 使用@Value注解来注入
 
 ```java
 @Component
@@ -1859,3 +1891,116 @@ public class AliyunOSSOperator{
 }
 ```
 
+##### 但是一个一个的注入很繁琐，下面是批量注入(@ConfigurationProperties注入)
+
+```yml
+aliyun:
+	oss:
+		endpoint: https//oss-cn-beijing.aliyuncs.com
+		bucketName: web-true
+		region: cn.beijing
+```
+
+声明一个实体类用来存储这些配置信息
+
+```java
+@Data//获取get，set方法
+@Component//作为一个Bean由IOC容器代理
+@CongigurationProperties(prefix = "aliyun.oss")//这里表示配置文件中的前缀是什么
+public class AliyunOSSProperties{
+    private String endpoint;
+    private String bucketName;
+    private String region;
+}
+```
+
+在需要使用的时候注入
+
+```java
+@Component
+public class AliyunOSSOperator{
+	@Autowired
+	private AliyunOSSProperties aliyunOOSSProperties;
+    
+    public String upload(byte[] content, String originalFilename) throws Exception{
+        String endpoint = aliyunOSSProperties.getEndpoint();
+        String bucketName = aliyunOSSProperties.getBucketName();
+        String region = aliyunOSSProperties.getRegion();
+    }
+}
+```
+
+# 全局异常处理器
+
+在com.itheima下新建一个包exception包下面新建一个类GlobalExceptionHandler.java
+
+以下代码可以**穿透多层异常链**，找到最底层的导致异常的根本原因，这种方法适用于任何类型的嵌套异常，并且不依赖于具体的异常类型或消息格式
+
+```java
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler
+    public Result handleException(Throwable throwable){
+        Throwable cause = throwable;
+        while(cause.getCause() != null && cause.getCause() != cause){
+            cause = cause.getCause();
+        }
+        String msg = cause.getMessage();
+        log.error("程序出错了" + msg);
+        return Result.error("程序出错了，请联系管理员" + msg);
+    }
+}
+```
+
+# Map的键与值得别名
+
+这里查询到的数据封装到LIst集合里，集合中Map的键的别名为“pos”， 值得别名为“num”
+
+```java
+//统计员工性别人数
+    @MapKey("pos")
+    public List<Map<String, Object>> countEmpGenderData();
+```
+
+```xml
+ <!-- 统计员工职位人数 -->
+    <select id="countEmpJobData" resultType="java.util.Map">
+        select
+            (case when job = 1 then '班主任'
+                when job = 2 then '讲师'
+                when job = 3 then '学工主管'
+                when job = 4 then '教研主管'
+                when job = 5 then '咨询师'
+                else '其他' end) pos,
+            count(*) num
+        from emp group by job order by num asc;
+    </select>
+    <select id="countEmpGenderData" resultType="java.util.Map">
+        select
+            (case when gender = 1 then '男性员工'
+                when gender = 2 then '女性员工'
+                end) pos,
+            count(*) num
+        from emp group by gender order by gender asc;
+    </select>
+```
+
+# 登录校验
+
+![image-20250603120635821](../image/image-20250603120635821.png)
+
+**登录标记**：用户登录成功之后，在后续的每一次请求中，都可以获取到该标记。【会话技术】
+
+**统一拦截**：过滤器Filter，拦截器Interceptor
+
+### 会话技术
+
+* 会话：用户打开浏览器，访问web服务器的资源，会话建立，直到有一方断开连接，会话结束。在一次会话中可以包含多次请求和响应。
+* 会话跟踪：一种维护浏览器状态的方法，服务器需要识别多次请求是否来自于同一浏览器，以便在同一次会话的多次请求间共享数据
+
+* 会话跟踪方案：
+* * 客户端会话跟踪技术：Cookie
+  * 服务端会话跟踪技术：Session
+  * 令牌技术
