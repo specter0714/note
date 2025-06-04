@@ -1,3 +1,7 @@
+---
+
+---
+
 # 测试
 
 **阶段划分**
@@ -2004,3 +2008,119 @@ public class GlobalExceptionHandler {
 * * 客户端会话跟踪技术：Cookie
   * 服务端会话跟踪技术：Session
   * 令牌技术
+
+##### **cookie**：
+
+* 优点：HTTP协议中支持的技术
+* 缺点：移动端APP无法使用Cookie，不安全，用户可以自己禁用Cookie，Cookie不能跨域
+
+跨域：协议，IP/域名，端口，这三个有一个不同就是跨域
+
+**cookie会话跟踪方案的原理**：1.响应头：Set-Cookie，2.请求头：Cookie
+
+##### **session**：
+
+* 优点：存储在服务器端，安全
+* 缺点：集群环境下无法使用Session，还有Cookie的缺点
+
+**Session会话跟踪方案的原理**：Session的底层是基于Cookie的（Set-Cookie，Cookie）
+
+项目一般采用集群方式来部署
+
+
+
+<img src="../image/image-20250603202647984.png" alt="image-20250603202647984" style="zoom:67%;" />
+
+cookie和session的区别：cookie直接保存在浏览器本地，用户可手动更改cookie值，而session直接保存在服务器，浏览器保存的只是session的唯一标识（id），用户无法手动更改值，只能更改那个唯一标识（id）
+
+##### 令牌：（主流方案）
+
+* 优点：支持PC端、移动端， 解决集群环境下的认证问题， 减轻服务器端存储压力
+* 缺点：需要程序员自己实现
+
+### JWT令牌
+
+* 全称：JSON Web Token (https://jwt.io/)
+* 定义了一种简洁的、自包含的格式，用于在通信双方以json数据格式安全的传输信息。
+* 组成：
+* * 第一部分：Header（头），记录令牌类型，签名算法等。例如：{"alg":"HS256", "type":"JWT"}
+  * 第二部分：Payload（有效载荷），携带一些自定义信息、默认信息等。例如：{"id":"1", "uername":"Tom"}
+  * 第三部分：Signature（签名）， 防止Token被篡改、确保安全性。将header、payload融入，并加入指定密钥，通过指定签名算法计算而来
+
+![image-20250603210914067](../image/image-20250603210914067.png)
+
+JWT令牌由三部分组成，以点分割，原来的第一二部分是json格式，但是进行了编码操作转化到这个格式
+
+**Base64**：是一种基于64个可打印字符（A-Z a-z 0-9 + /）来标识二进制数据的编码方式，这个 = 等号，在Base64编码里是一个补位符号
+
+构建令牌：
+
+```java
+public void testGenerateJwt(){
+        Map<String, Object> dataMap = new HashMap<>();
+        dataMap.put("id", 1);
+        dataMap.put("username", "admin");
+        String jwt = Jwts.builder().signWith(SignatureAlgorithm.HS256, "aXRoZWltYQ==")
+                .addClaims(dataMap)//添加自定义的信息
+                .setExpiration(new Date(System.currentTimeMillis() + 3600*1000))//设定过期时间
+                .compact();
+        System.out.println(jwt);
+}
+```
+
+校验解析令牌：
+
+```java
+public void testParseJWT(){
+        String token = "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImV4cCI6MTc0OTAwODQ2N30.Ejpwv0MHYgnKmXM5rvbzb4vlBs7GP-F4tSC9LU8h-2I";
+        Claims claims = Jwts.parser().setSigningKey("aXRoZWltYQ==")//指定密钥
+                .parseClaimsJws(token)//解析令牌
+                .getBody();//获取自定义信息
+        System.out.println(claims);
+    }
+```
+
+Jwt令牌：
+
+* 生成：Jwts.builder()...
+* 校验：Jwts.parser()...
+
+当令牌被篡改了，或者过了有效期会报错
+
+**注意**：JWT校验时使用的签名密钥，必须和生成JWT令牌时使用的密钥是配套的
+
+### 过滤器Filter
+
+* 概念：Filter过滤器，是JavaWeb三大组件（Servlet、Filter、Listener）之一
+* 过滤器可以把对资源的请求拦截下来，从而实现一些特殊的功能。
+* 过滤器一般完场一些通用的操作，比如：登录校验、统一编码处理、敏感字符处理等。
+
+1. 定义Filter：定义一个类，实现Filter接口，实现其所有方法。
+2. 配置Filter：Filter类上加@WebFilter注解，配置拦截路径。引导类（启动类....application.java）上加@ServletComponentScan开启Servlet组件支持
+
+```java
+@Slf4j
+@WebFilter(urlPatterns = "/*")//拦截所有请求
+public class DemoFilter implements Filter {
+
+    //初始化方法，web服务器启动时执行一次
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        log.info("init 初始化的方法。。。");
+    }
+
+    //拦截到请求之后执行，会执行多次
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+        log.info("拦截到请求");
+        //放行
+        filterChain.doFilter(servletRequest, servletResponse);
+    }
+    //销毁方法，web服务器关闭时执行一次
+    @Override
+    public void destroy() {
+        log.info("destroy 销毁的方法。。。");
+    }
+}
+```
+
