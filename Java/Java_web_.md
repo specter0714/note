@@ -1,3 +1,7 @@
+---
+
+---
+
 # 测试
 
 **阶段划分**
@@ -1029,7 +1033,7 @@ public interface UserMapper{
 }
 ```
 
-XML映射文件：
+XML映射文件：**resultType 是表示单个返回的类型**
 
 ```xml
 <mapper namespace = "com.itheima.mapper.UserMapper">
@@ -1039,6 +1043,10 @@ XML映射文件：
     </select>
 </mapper>
 ```
+
+### XML映射文件中的返回值自定义：
+
+<img src="../image/image-20250527135327855.png" alt="image-20250527135327855" style="zoom: 67%;" /><img src="../image/image-20250527135405793.png" alt="image-20250527135405793" style="zoom:80%;" /><img src="../image/image-20250527135446717.png" alt="image-20250527135446717" style="zoom:80%;" />
 
 XML映射辅助配置：
 
@@ -1202,6 +1210,34 @@ public Result delete(Integer id){
     return Result.success();
 }
 ```
+
+* 方式四：用类接收
+
+```java
+//有多个参数，先封装一个类，然后用类来接收
+```
+
+* 特殊情况1：url参数：DELETE /emps?ids=1,2,3
+
+* * 方式一：直接用数组接收
+
+    ```java
+    @DeleteMapping
+    public Result delete(Integer[] ids){
+        log.info("根据id删除员工信息:" + ids);
+        return Result.success();
+    }
+    ```
+
+  * 方式二：通过集合来接收
+
+    ```java
+    @DeleteMapping
+    public Result delete(Integer[] ids){
+    	log.info("根据id删除员工信息:" + ids);
+    	return Result.success();
+    
+    ```
 
 **注意：一旦加了@RequestParam注解，该参数必须传递，因为默认required为true，如果是可传可不传，就把required设置为false**
 
@@ -1584,5 +1620,507 @@ select * from emp where dept_id = (select id from dept where name = '教研部')
 
 -- 查询工资 低于本部门平均工资的员工信息。
 select emp.* from emp, (select dept_id, avg(salary) num from emp group by dept_id) st where emp.salary < st.num && emp.dept_id = st.dept_id;
+```
+
+# PageHelper
+
+* PageHelper是第三方提供的在Mybatis框架中用来实现分页的插件，用来简化分页操作，提高开发效率
+
+![image-20250520155951578](../image/image-20250520155951578.png)
+
+* 使用步骤：
+* 1. 引入PageHelper的依赖
+  2. 定义Mapper接口的查询方法（无需考虑分页）
+  3. 在Service方法中实现分页查询
+
+Mapper:
+
+```java
+@Select("select emp.*, dept.name deptName from emp left outer join dept on emp.dept_id = dept.id order by emp.update_time desc")
+    public Page<Emp> list();
+```
+
+Service:
+
+EmpService:
+
+```java
+public interface EmpService<T> {
+    public PageResult<T> page(Integer page, Integer pageSize);
+}
+```
+
+EmpServiceImpl:
+
+```java
+//根据PageHelper分页查询
+    @Override
+    public PageResult<Emp> page(Integer page, Integer pageSize) {
+        //设置分页参数
+        PageHelper.startPage(page, pageSize);
+        //执行查询
+        Page<Emp> p = empMapper.list();
+        //解析查询结果，封装
+        return new PageResult<Emp>(p.getTotal(), p.getResult());
+    }
+```
+
+* PageHelper实现机制
+* 1. select count(0) from emp e ...
+  2. select ... from emp e ...
+* 注意事项：
+* 1. SQL语句结尾不要加分号（；）
+  2. PageHelper只会对紧跟在其后的第一条SQL语句进行分页处理
+
+# 动态SQL
+
+* 随着用户的输入或外部条件的变化而变化的SQL语句，我们称为动态SQL
+
+* \<if>：判断条件是否成立，如果条件为true，则拼接SQL
+
+```xml
+<if test="gender != null">
+	and emp.gender = #{gender}
+</if>
+```
+
+* \<where>：根据查询条件，来生成where关键字，并会自动去除条件前面多余的and和or
+
+```xml
+<select id="list" resultType="com.itheima.pojo.Emp">
+   select emp.*, dept.name from emp left outer join dept on emp.dept_id = dept.id
+           <where>
+              <if test="name != null and name != ''">
+                  and emp.name like concat('%', #{name}, '%')
+              </if>
+              <if test="gender != null">
+                  and gender = #{gender}
+              </if>
+              <if test="begin != null and end != null">
+                  and emp.entry_date between #{begin} and #{end}
+              </if>
+             </where>>order by emp.update_time desc
+</select>
+```
+
+# 新增员工-批量保存工作经历
+
+动态SQL：\<foreach>
+
+* \<foreach>属性说明：
+* 1. collection：集合名称
+  2. item：集合遍历出来的元素/项
+  3. separator：每一次遍历使用的分隔符
+  4. open：遍历开始前拼接的片段
+  5. close：遍历结束后拼接的片段
+
+# 主键返回
+
+```java
+@Options(useGeneratedKeys = true, keyProperty = "id")//获取到生成的主键--主键返回
+    @Insert(".....")
+    public void insert(Emp emp);
+```
+
+# 事务管理
+
+保存员工基本信息成功了，而保存工作经历失败了，这是不行的，因为这属于一个业务操作，如果保存员工信息成功了，保存工作经历信息失败了，就会造成数据库数据的不完整，不一致。
+
+**概念**：事务，是一组操作的集合，它是一个不可分割的工作单位。事物会把所有的操作作为一个整体一起向系统提交或撤销操作请求，即这些操作要么同时成功，要么同时失败。
+
+* 事务控制主要三步操作：开启事务，提交事务/回滚事务
+
+```sql
+start transaction; / begin;
+-- 1.保存员工基本信息
+insert into emp values(....);
+-- 2.保存员工的工作经历信息
+insert into emp_expr(...) values(...), (...);
+
+-- 提交事务（全部成功） / 回滚事务（有一个失败）
+commit; / rollback;
+```
+
+Spring事务管理-控制事务
+
+* 注解：@Transactional
+* 作用：将当前方法交给spring进行事务管理，方法执行前，开启事务；成功执行完毕，提交事务；出现异常，回滚事务
+* 位置，业务（service）层得方法上、类上、接口上
+
+方法上：这个方法需要进行事务控制（推荐）
+
+实现类上：这个类中的所有方法需要进行事务控制
+
+接口上：这个接口所有的实现类中的所有的方法需要进行事务控制
+
+**注意**：Spring在进行AOP代理时（如@Transactional），默认需要一个无参构造函数，但是使用了自定义构造函数之后如果没有显式定义无参构造函数，可能会导致代理创建失败。
+
+比如使用了@Autowired的构造器注入：
+
+```java
+private EmpMapper empMapper;
+private EmpExprMapper empExprMapper;
+@Autowired
+public EmpServiceImpl(EmpMapper empMapper, EmpExprMapper empExprMapper){
+    this.empMapper = empMapper;
+    this.empExprMapper = empExprMapper;
+}
+
+
+public EmpServiceImpl() {//添加一个无参构造函数
+}
+@Transactional//事务管理的注解
+@Override
+public void save(Emp emp){
+    //1.保存员工基本信息
+    emp.setCreateTime(LocalDateTime.now());
+    emp.setUpdateTime(LocalDateTime.now());
+    empMapper.insert(emp);
+    //2.保存员工工作经历信息
+    List<EmpExpr> exprList = emp.getExprList();
+    if(!CollectionUtils.isEmpty(exprList)){
+        exprList.forEach(empExpr -> {
+            empExpr.setEmpId(emp.getId());
+        });
+        empExprMapper.insertBatch(exprList);
+    }
+}
+```
+
+### rollbackFor
+
+这个属性用于控制出现何种异常类型，回滚事务。
+
+```java
+@Transactional(rollbackFor = {Exception.class})//使出现所有异常都会回滚
+```
+
+**@Transactional的rollbackFor的默认是出现运行时异常RuntimeException才会回滚**
+
+### propagation
+
+事务传播行为：指的是当一个事务方法被另一个事务方法调用时，这个事务方法应该如何进行事务控制
+
+| 属性值        | 含义                                                         |
+| ------------- | ------------------------------------------------------------ |
+| REQUIRED      | 【默认值】需要事务，有则加入，无则创建新事务                 |
+| REQUIRES_NEW  | 需要新事务，无论有无，总是创建新事务                         |
+| SUPPORTS      | 支持事务，有则加入，无则在无事务状态中运行                   |
+| NOT_SUPPORTED | 不支持事务，在无事务状态下运行，如果当前存在已有事务，则挂起当前事务 |
+| MANDATORY     | 必须有事务，否则抛异常                                       |
+| NEVER         | 必须没事务，否则抛异常                                       |
+
+下面这个程序，功能为插入数据和记录日志，记录日志是无论插入成功与否都要记录，但是现在的方法empLogService.insertLog();，它没有加@Transactional注解，所以当这个save方法抛出异常时，它会回滚，所以往数据库里写入日志也会回滚，虽然在final之后，但是也无法执行写入。
+
+所以必须要在insertLog方法的本体上面加一个注解@Transactional(propagation = Propagation.REQUIRES_NEW)（意思是，创建一个新的事务，需要在一个新的事务中运行），所以它运行完毕之后直接久已经commit了，就算save方法回滚也并不会影响
+
+```java
+@Transactional(rollbackFor = {Exception.class})//事务管理的注解 - 默认出现运行时异常RuntimeException才会回滚
+@Override
+public void save(Emp emp) throws Exception {
+    try {
+        //1.保存员工基本信息
+        emp.setCreateTime(LocalDateTime.now());
+        emp.setUpdateTime(LocalDateTime.now());
+        empMapper.insert(emp);
+        //2.保存员工工作经历信息
+        int i = 1 / 0;
+        List<EmpExpr> exprList = emp.getExprList();
+        if(!CollectionUtils.isEmpty(exprList)){
+            exprList.forEach(empExpr -> {
+                empExpr.setEmpId(emp.getId());
+            });
+            empExprMapper.insertBatch(exprList);
+        }
+    } finally {
+        //记录操作日志
+        EmpLog empLog = new EmpLog(null, LocalDateTime.now(), "新增员工：" + emp);
+        empLogService.insertLog(empLog);
+    }
+}
+```
+
+### 常见的传播行为
+
+* REQUIRED：大部分场景（有事务我就加入，没有事务我就创建一个）
+* REQUIRES_NEW：希望两个方法在独立的事务中运行，互不影响（有没有事务我都要创建一个独立的自己的事务）
+
+### 事务的四大特性（ACID）
+
+原子性（Atomicity）：事务是不可分割的最小单元，要么全部成功，要么全部失败
+
+一致性（Consistency）：事务完成时，必须使所有的数据都保持一致状态
+
+隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的独立环境下运行
+
+持久性（Durability）：事务一旦提交或回滚，它对数据库中的数据的改变就是永久的
+
+# 文件上传
+
+html页面
+
+这个属性很重要enctype，没有写这属性的话之后传入文件的名称，有了这个属性才会传入文件的内容
+
+```html
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="submit" value="提交">
+</form>
+```
+
+SpringBoot上传文件屎，默认的最大大小为1MB
+
+### 阿里云OSS参数配置化
+
+**将一些需要灵活变化的参数，配置在配置文件中，然后通过@Value注解来注入外部配置的属性。**
+
+```yml
+aliyun:
+	oss:
+		endpoint: https//oss-cn-beijing.aliyuncs.com
+		bucketName: web-true
+		region: cn.beijing
+```
+
+##### 使用@Value注解来注入
+
+```java
+@Component
+public class AliyunOSSOperator{
+    @Value("${aliyun.oss.endpoint}")
+    private String endpoint;
+    @Value("${aliyun.oss.backetName}")
+    private String bucketName;
+    @Value("${aliyun.oss.region}")
+    private String region;
+}
+```
+
+##### 但是一个一个的注入很繁琐，下面是批量注入(@ConfigurationProperties注入)
+
+```yml
+aliyun:
+	oss:
+		endpoint: https//oss-cn-beijing.aliyuncs.com
+		bucketName: web-true
+		region: cn.beijing
+```
+
+声明一个实体类用来存储这些配置信息
+
+```java
+@Data//获取get，set方法
+@Component//作为一个Bean由IOC容器代理
+@CongigurationProperties(prefix = "aliyun.oss")//这里表示配置文件中的前缀是什么
+public class AliyunOSSProperties{
+    private String endpoint;
+    private String bucketName;
+    private String region;
+}
+```
+
+在需要使用的时候注入
+
+```java
+@Component
+public class AliyunOSSOperator{
+	@Autowired
+	private AliyunOSSProperties aliyunOOSSProperties;
+    
+    public String upload(byte[] content, String originalFilename) throws Exception{
+        String endpoint = aliyunOSSProperties.getEndpoint();
+        String bucketName = aliyunOSSProperties.getBucketName();
+        String region = aliyunOSSProperties.getRegion();
+    }
+}
+```
+
+# 全局异常处理器
+
+在com.itheima下新建一个包exception包下面新建一个类GlobalExceptionHandler.java
+
+以下代码可以**穿透多层异常链**，找到最底层的导致异常的根本原因，这种方法适用于任何类型的嵌套异常，并且不依赖于具体的异常类型或消息格式
+
+```java
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler
+    public Result handleException(Throwable throwable){
+        Throwable cause = throwable;
+        while(cause.getCause() != null && cause.getCause() != cause){
+            cause = cause.getCause();
+        }
+        String msg = cause.getMessage();
+        log.error("程序出错了" + msg);
+        return Result.error("程序出错了，请联系管理员" + msg);
+    }
+}
+```
+
+# Map的键与值得别名
+
+这里查询到的数据封装到LIst集合里，集合中Map的键的别名为“pos”， 值得别名为“num”
+
+```java
+//统计员工性别人数
+    @MapKey("pos")
+    public List<Map<String, Object>> countEmpGenderData();
+```
+
+```xml
+ <!-- 统计员工职位人数 -->
+    <select id="countEmpJobData" resultType="java.util.Map">
+        select
+            (case when job = 1 then '班主任'
+                when job = 2 then '讲师'
+                when job = 3 then '学工主管'
+                when job = 4 then '教研主管'
+                when job = 5 then '咨询师'
+                else '其他' end) pos,
+            count(*) num
+        from emp group by job order by num asc;
+    </select>
+    <select id="countEmpGenderData" resultType="java.util.Map">
+        select
+            (case when gender = 1 then '男性员工'
+                when gender = 2 then '女性员工'
+                end) pos,
+            count(*) num
+        from emp group by gender order by gender asc;
+    </select>
+```
+
+# 登录校验
+
+![image-20250603120635821](../image/image-20250603120635821.png)
+
+**登录标记**：用户登录成功之后，在后续的每一次请求中，都可以获取到该标记。【会话技术】
+
+**统一拦截**：过滤器Filter，拦截器Interceptor
+
+### 会话技术
+
+* 会话：用户打开浏览器，访问web服务器的资源，会话建立，直到有一方断开连接，会话结束。在一次会话中可以包含多次请求和响应。
+* 会话跟踪：一种维护浏览器状态的方法，服务器需要识别多次请求是否来自于同一浏览器，以便在同一次会话的多次请求间共享数据
+
+* 会话跟踪方案：
+* * 客户端会话跟踪技术：Cookie
+  * 服务端会话跟踪技术：Session
+  * 令牌技术
+
+##### **cookie**：
+
+* 优点：HTTP协议中支持的技术
+* 缺点：移动端APP无法使用Cookie，不安全，用户可以自己禁用Cookie，Cookie不能跨域
+
+跨域：协议，IP/域名，端口，这三个有一个不同就是跨域
+
+**cookie会话跟踪方案的原理**：1.响应头：Set-Cookie，2.请求头：Cookie
+
+##### **session**：
+
+* 优点：存储在服务器端，安全
+* 缺点：集群环境下无法使用Session，还有Cookie的缺点
+
+**Session会话跟踪方案的原理**：Session的底层是基于Cookie的（Set-Cookie，Cookie）
+
+项目一般采用集群方式来部署
+
+
+
+<img src="../image/image-20250603202647984.png" alt="image-20250603202647984" style="zoom:67%;" />
+
+cookie和session的区别：cookie直接保存在浏览器本地，用户可手动更改cookie值，而session直接保存在服务器，浏览器保存的只是session的唯一标识（id），用户无法手动更改值，只能更改那个唯一标识（id）
+
+##### 令牌：（主流方案）
+
+* 优点：支持PC端、移动端， 解决集群环境下的认证问题， 减轻服务器端存储压力
+* 缺点：需要程序员自己实现
+
+### JWT令牌
+
+* 全称：JSON Web Token (https://jwt.io/)
+* 定义了一种简洁的、自包含的格式，用于在通信双方以json数据格式安全的传输信息。
+* 组成：
+* * 第一部分：Header（头），记录令牌类型，签名算法等。例如：{"alg":"HS256", "type":"JWT"}
+  * 第二部分：Payload（有效载荷），携带一些自定义信息、默认信息等。例如：{"id":"1", "uername":"Tom"}
+  * 第三部分：Signature（签名）， 防止Token被篡改、确保安全性。将header、payload融入，并加入指定密钥，通过指定签名算法计算而来
+
+![image-20250603210914067](../image/image-20250603210914067.png)
+
+JWT令牌由三部分组成，以点分割，原来的第一二部分是json格式，但是进行了编码操作转化到这个格式
+
+**Base64**：是一种基于64个可打印字符（A-Z a-z 0-9 + /）来标识二进制数据的编码方式，这个 = 等号，在Base64编码里是一个补位符号
+
+构建令牌：
+
+```java
+public void testGenerateJwt(){
+        Map<String, Object> dataMap = new HashMap<>();
+        dataMap.put("id", 1);
+        dataMap.put("username", "admin");
+        String jwt = Jwts.builder().signWith(SignatureAlgorithm.HS256, "aXRoZWltYQ==")
+                .addClaims(dataMap)//添加自定义的信息
+                .setExpiration(new Date(System.currentTimeMillis() + 3600*1000))//设定过期时间
+                .compact();
+        System.out.println(jwt);
+}
+```
+
+校验解析令牌：
+
+```java
+public void testParseJWT(){
+        String token = "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImV4cCI6MTc0OTAwODQ2N30.Ejpwv0MHYgnKmXM5rvbzb4vlBs7GP-F4tSC9LU8h-2I";
+        Claims claims = Jwts.parser().setSigningKey("aXRoZWltYQ==")//指定密钥
+                .parseClaimsJws(token)//解析令牌
+                .getBody();//获取自定义信息
+        System.out.println(claims);
+    }
+```
+
+Jwt令牌：
+
+* 生成：Jwts.builder()...
+* 校验：Jwts.parser()...
+
+当令牌被篡改了，或者过了有效期会报错
+
+**注意**：JWT校验时使用的签名密钥，必须和生成JWT令牌时使用的密钥是配套的
+
+### 过滤器Filter
+
+* 概念：Filter过滤器，是JavaWeb三大组件（Servlet、Filter、Listener）之一
+* 过滤器可以把对资源的请求拦截下来，从而实现一些特殊的功能。
+* 过滤器一般完场一些通用的操作，比如：登录校验、统一编码处理、敏感字符处理等。
+
+1. 定义Filter：定义一个类，实现Filter接口，实现其所有方法。
+2. 配置Filter：Filter类上加@WebFilter注解，配置拦截路径。引导类（启动类....application.java）上加@ServletComponentScan开启Servlet组件支持
+
+```java
+@Slf4j
+@WebFilter(urlPatterns = "/*")//拦截所有请求
+public class DemoFilter implements Filter {
+
+    //初始化方法，web服务器启动时执行一次
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        log.info("init 初始化的方法。。。");
+    }
+
+    //拦截到请求之后执行，会执行多次
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+        log.info("拦截到请求");
+        //放行
+        filterChain.doFilter(servletRequest, servletResponse);
+    }
+    //销毁方法，web服务器关闭时执行一次
+    @Override
+    public void destroy() {
+        log.info("destroy 销毁的方法。。。");
+    }
+}
 ```
 
