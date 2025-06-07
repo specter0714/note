@@ -2124,3 +2124,249 @@ public class DemoFilter implements Filter {
 }
 ```
 
+**注意**：
+
+* 如果过滤器中不执行放行操作，过滤器拦截到请求之后，就不会访问对应的资源。
+* 放行：chain.doFilter(request, respsonse)
+
+令牌校验Filter-流程
+
+1. 获取请求url
+2. 判断请求url中是否包含login，如果包含，说明是登录操作，放行
+3. 获取请求头中的令牌（token）
+4. 判断令牌是否存在，如果不存在，响应401
+5. 解析token，如果解析失败，响应401
+6. 放行
+
+Filter执行流程
+
+<img src="../image/image-20250604195243145.png" alt="image-20250604195243145" style="zoom: 50%;" />
+
+放行后，执行完毕，又会回到过滤器中，执行放行后的操作，最终给前端响应数据
+
+FIlter-拦截路径
+
+Filter可以根据需求，配置不同的拦截资源路径：
+
+| 拦截路径     | urlPatterns | 含义                                |
+| ------------ | ----------- | ----------------------------------- |
+| 拦截具体路径 | /login      | 只有访问 /login 路径时，才会被拦截  |
+| 目录拦截     | /emps/*     | 访问 /emps 下的所有资源，都会被拦截 |
+| 拦截所有     | /*          | 访问所有资源，都会被拦截            |
+
+Filter-过滤器链
+
+介绍：一个web应用中，可以配置多个过滤器，这多个过滤器就形成了一个**过滤器链**
+
+顺序：注解配置的Filter，优先级时按照过滤器类名（字符串）的自然排序
+
+![image-20250604202609563](../image/image-20250604202609563.png)
+
+### 拦截器Interceptor
+
+* 概念：是一种动态拦截方法调用的机制，类似于过滤器。Spring框架中提供的，主要用来动态拦截控制器方法的执行。
+* 作用：拦截请求，在指定的方法调用前后根据业务需要执行预先设定的代码
+
+请求 --- 拦截器 --- 资源 --- 拦截器 --- 响应
+
+1. 定义拦截器，实现HandlerINterceptor接口，并实现其所有方法。因为拦截器Interceptor是Spring提供的，上面加个注解@Component交给IOC容器代理
+
+![image-20250604204914312](../image/image-20250604204914312.png)
+
+2. 注册拦截器，在类上加一个注解@Configuration表明这是一个配置类，添加一个拦截器，拦截路径为 /** 标识拦截所有
+
+![image-20250604204828269](../image/image-20250604204828269.png)
+
+**令牌校验-拦截器**：
+
+1. 获取请求url
+2. 判断请求url中是否包含login，如果包含，说明是登录操作，放行
+3. 获取请求头中的令牌（token）
+4. 判断令牌是否存在，如果不存在，响应401
+5. 解析token，如果解析失败，响应401
+6. 放行
+
+**拦截器-拦截路径**：
+
+* 拦截器可以根据需求，配置不同的拦截路径：
+
+```java
+@Override
+public void addInterceptors(InterceptorRegistry registry){
+    registry.addInterceptor(demoInterceptor)//添加拦截器
+        .addPathPatterns("/**")//需要拦截哪些资源
+        .excludePathPatterxs("/login");//不需要拦截哪些资源
+}
+```
+
+| 拦截路径  | 含义                 | 举例                                                    |
+| --------- | -------------------- | ------------------------------------------------------- |
+| /*        | 一级路径             | 能匹配/depts，/emps，/login，**不能匹配 /depts/1**      |
+| /**       | 任意级路径           | 能匹配/depts，/depts/1，/depts/1/2                      |
+| /depts/*  | /depts下的一级路径   | 能匹配/depts/1，**不能能匹配/depts/1/2，/depts**        |
+| /depts/** | /depts下的任意级路径 | 能匹配/depts，/depts/1，/depts/1/2，**不能匹配/emps/1** |
+
+如果既定义了**过滤器**，又定义了**拦截器**，会先经过过滤器，再到拦截器
+
+![image-20250605103320771](../image/image-20250605103320771.png)
+
+* Filter 和 Interceptor 的区别：
+* 1. 接口规范不同：过滤器需要实现Filter接口，而拦截器需要实现HandlerInterceptor接口。
+  2. 拦截范围不同：过滤器Filter会拦截所有的资源，而Interceptor只会拦截Spring环境中的资源。
+
+# AOP
+
+* AOP：Aspect Oriented Programming （面向切面编程、面向方面编程），可简单理解为就是面向特定方法编程。
+
+* 场景：案例中部分业务方法运行较慢，定位执行耗时较长的接口，此时需要统计每个业务方法的执行耗时。
+* 优势
+* 1. 减少重复代码
+  2. 代码无入侵
+  3. 提高开发效率
+  4. 维护方便
+
+### 入门
+
+**SpringAOP快速入门**：
+
+1. 导入依赖：在pom.xml中引入AOP依赖
+2. 编写AOP程序：针对特定的方法根据业务需要进行编程
+
+**AOP入门示例**：
+
+```java
+@Slf4j
+@Aspect
+@Component
+public class RecordTimeAspect {
+
+    @Around("execution(*  com.itheima.service.impl.*.*(..))")
+    public Object recordTime(ProceedingJoinPoint pjp) throws Throwable {
+        //1.记录方法运行的开始时间
+        Long begin = System.currentTimeMillis();
+        //2.执行原始方法
+        Object object = pjp.proceed();
+        //3.记录结束时间，记录耗时
+        Long end = System.currentTimeMillis();
+        log.info("方法耗时： {} ms", end - begin);
+        return object;
+    }
+}
+```
+
+### AOP核心概念
+
+* 连接点：JoinPoint，可以被AOP控制的方法（暗含方法执行时的相关信息）
+* 通知：Advice，指那些重复的逻辑，也就是共性功能（最终体现为一个方法）
+* 切入点：PointCut，匹配连接点的条件，通知仅会在切入点方法执行时被应用
+* 切面：Aspect，描述通知与切入点的对应关系（通知+切入点）
+* 目标对象：Target，通知所应用的对象
+
+@Around("")，括号里的就是**切入点表达式**
+
+AOP执行时会**动态代理**，生成一个代理对象，代理对象（基于接口的JDK代理，基于继承的CGLIB代理，默认情况下，如果目标类实现了至少一个接口，Spring使用JDK动态代理，否则使用CGLIB），交给Spring的IOC容器代理，这个代理对象它是重写的原来的方法，方法的实现是**通知+目标对象**，然后再运行时，注入service的时候，注入的就是这个代理对象，而不是原来的。
+
+![image-20250605201622638](../image/image-20250605201622638.png)
+
+### 通知类型
+
+**根据通知方法执行时机的不同，将通知类型分为以下常见的五类：**
+
+1. @Around：环绕通知，此注解标注的通知方法在目标方法前后都被执行
+2. @Before：前置通知，此注解标注的通知方法在目标方法前被执行
+3. @After：后置通知，此注解标注的通知方法在目标方法后被执行，无论是否有异常都会执行
+4. @AfterReturning：返回后通知，此注解标注的通知方法在目标方法后被执行，有异常不会执行
+5. @AfterThrowing：异常后通知，此注解标注的通知方法发生异常后执行
+
+**注意**：@Around环绕通知需要自己调用ProceedingJoinPoint.proceed() 来让原始方法执行，其他通知不需要考虑目标方法执行
+
+### 通知顺序
+
+* 当有多个切面的切入点都匹配到了目标项目，目标方法运行时，多个通知方法都会被执行。
+* 执行顺序：
+* 不同切面类中，默认按照切面类的类型字母排序：
+* * 目标方法前的通知方法：字母排名靠前的先执行
+  * 目标方法后的通知方法：字母排名靠前的后执行
+* 用 @Order（数字）加载切面类上面来控制顺序
+* * 目标方法前的通知方法：数字小的先执行
+  * 目标方法后的通知方法：数字小的后执行
+
+### 切入点表达式
+
+* 介绍：描述切入点方法的一种表达式
+* 作用：用来决定项目中的哪些方法需要加入通知
+* 常见形式：
+* 1. execution(......)：根据方法的签名来匹配
+  2. @annotation(......)：根据注解匹配
+
+```java
+@Before("execution(public void com.itheima.service.impl.DeptServiceImpl.delete(java.lang.Integer))")
+public void before(JoinPoint joinPoint){}
+
+@Before("@annotation(com.itheima.anno.Log)")
+public void before(){}
+```
+
+##### **execution**:
+
+根据方法的返回值、包名、类名、方法名、方法参数等信息来匹配，语法为：
+
+```java
+execution(访问修饰符 返回值 包名.类名.方法名（方法参数） throws 异常)
+```
+
+**其中可省略部分**
+
+1. 访问修饰符：可省略（比如：public、protected）
+2. 包名.类名：可省略
+3. throws 异常：可省略（注意是方法上声明抛出的异常，不是实际抛出的异常）
+
+**可以使用通配符描述切入点**
+
+1. *：单独的任意符号，可以通配任意返回值、包名、类名、方法名、任意类型的一个参数，也可以通配包、类、方法名的一部分
+
+```java
+execution(* com.*.service.*.uupdate*(*))
+```
+
+2.  ..：多个连续的任意符号，或任意类型、任意个数的参数
+
+```java
+execution(* com.itheima..DeptService.*(..))
+```
+
+execution之间可以用  || 或者 &&  或 | 连接。
+
+书写建议：
+
+1. 所有业务方法名在命名时尽量规范，方便切入点表达式快速匹配。如：findXxx，updateXxx。
+2. 描述切入点方法通常**基于接口描述，而不是直接描述实现类**，增强拓展性。
+3. 在满足业务需要的前提下，尽量缩小切入点的匹配范围。如：包名尽量不使用 .. ，不使用*匹配单个包
+
+##### annotation
+
+@annotation切入点表达式，用于匹配标识有特定注解的方法。
+
+```java
+@Around(@annotation(com.itheima.anno.LogOperation))
+public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable{
+	......
+}
+```
+
+```java
+@LogOperation
+@PostMapping
+public Result save(@RequestBody Dept dept){
+	......
+}
+```
+
+### 连接点
+
+* 在Spring中用JoinPoint抽象了连接点，用它可以获得方法执行时的相关信息，如目标类名、方法名、方法参数等。
+* * 对于@Around通知，获取连接点信息只能使用 ProceedingJoinPoint
+  * 对于其他四种通知，获取连接点信息只能使用 JoinPoint，他是 ProceedingJoinPoint 的父类
+
+
+
