@@ -1073,9 +1073,11 @@ $application.yaml / application.yml$文件：
 
 ```yaml
 spring:
-	datesource:
+	datasource:
 		driver-class-name: com.mysql.jdbc.Driver
-		url: jdbc:mysql://localhost:3306/web01
+		url: 
+			jdbc:
+				mysql: //localhost:3306/web01
 		username: root
 		password: 1234
 ```
@@ -2348,6 +2350,13 @@ execution之间可以用  || 或者 &&  或 | 连接。
 @annotation切入点表达式，用于匹配标识有特定注解的方法。
 
 ```java
+package com.itheima.anno
+public @interface LogOperation{
+    
+}
+```
+
+```java
 @Around(@annotation(com.itheima.anno.LogOperation))
 public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable{
 	......
@@ -2368,5 +2377,284 @@ public Result save(@RequestBody Dept dept){
 * * 对于@Around通知，获取连接点信息只能使用 ProceedingJoinPoint
   * 对于其他四种通知，获取连接点信息只能使用 JoinPoint，他是 ProceedingJoinPoint 的父类
 
+# ThreadLocal
 
+* ThreadLocal并不是一个Thread，而是Thread的局部变量。
+* ThreadLocal为每一个线程提供一份单独的存储空间，具有线程隔离的效果，不同的线程之间不会相互干扰。
+* ThreadLocal常用方法：
+* * public void set(T value)，设置当前线程局部变量的值
+  * public T get()，返回当前线程所对应的线程局部变量的值
+  * public void remove()，移除当前线程的线程局部变量
 
+整个线程的执行流程
+
+![image-20250611115807347](../image/image-20250611115807347.png)
+
+可以定义一个类，里面声明一个静态的ThreadLocal变量，这样就可以跨类访问同一线程的ThreadLocal变量了
+
+# SpringBoot原理
+
+### 配置文件优先级
+
+propertise > yml > yaml
+
+**注意：虽然springboot支持多种配置文件，但是在项目开发时，推荐统一使用一种格式的配置（yml是主流）**
+
+SpringBoot除了支持配置文件属性配置，还支持Java系统属性和命令行参数的方式进行属性配置。
+
+Java系统属性：-Dserver.port=9000
+
+命令行参数：--server.port=9000
+
+命令行参数 > Java系统属性 > properties > yml > yaml
+
+* 执行maven打包指令package
+* 执行java指令，运行jar包（Java系统属性加在前面，命令行参数加在后面）
+
+```
+java -Dserver.port=9000 -jar tlias-web-management-0.0.1-SNAPSHOT.jar --server.port=10010
+```
+
+### Bean管理
+
+##### 作用域
+
+* Spring支持五种作用域，后三种在web环境才生效：
+
+  | 作用域      | 说明                                               |
+  | ----------- | -------------------------------------------------- |
+  | singleton   | 容器内同 名称 的 bean 只有一个实例（单例）（默认） |
+  | prototype   | 每次使用该 bean 时会创建新的实例（非单例/多例）    |
+  | request     | 每个请求范围内会创建新的实例（web环境中，了解）    |
+  | session     | 每个会话范围内会创建新的实例（web环境中，了解）    |
+  | application | 每个应用范围内会创建新的实例（web环境中，了解）    |
+
+通过$@Scope$注解来指定类型
+
+默认单例的bean时在项目启动时，创建的，创建完毕后，会将该bean存入IOC容器中
+
+可以在类上加注解@Lazy，可以延迟bean的创建，不会在项目启动时立即创建，会在第一次使用这个bean时来创建这个bean
+
+* 单例的bean：
+* * 如果是无状态的，不存在多个线程共用资源的问题，是线程安全的，更加节约资源，性能更高
+  * 如果是有状态的，内部会保存状态信息，多个线程会同时操作该bean，可能会出现数据不一致，线程不安全
+
+* 多例的bean：
+* * 如果是有状态的，可以用来储存数据，每次得到的bean都是一个新的bean，是线程安全的
+
+##### 第三方Bean
+
+* 如果要管理的bean对象来自第三方（不是自定义的），是无法用 @Component 及衍生注解声明bean的，就需要用到 @Bean 注解
+
+```java
+@SpringBootApplication
+public class SpringbootWebConfigApplication {
+    @Bean //将方法返回值交给IOC容器管理，成为IOC容器的bean对象
+    public AliyunOSSOperator aliyunOSSOperator(AliyunOSSProperties ossOperator){
+        return new AliyunOSSOperator(ossOperator);
+    }
+    public static void main(String[] args) {
+        SpringApplication.run(SpringbootWebConfigApplication.class, args);
+    }
+}
+```
+
+**注意**：如果第三方bean需要依赖其他bean对象，直接在bean定义方法中设置形参即可，容器会根据类型自动装配，通过@Bean注解name或value属性可以声明bean的名称，如果不指定，默认bean的名称就是方法名
+
+* 若要管理的第三方bean对象，建议对这些bean进行集中分类配置，可以通过@Configuration注解声明一个配置类。
+
+### 起步依赖
+
+maven的依赖传递
+
+### 自动配置
+
+* SpringBoot的自动配置就是当spring项目启动后，一些配置类，bean对象就自动存入到了IOC容器中，不需要我们手动去声明，从而简化了开发，省去繁琐的配置操作。
+
+##### 实现方案
+
+**自动配置实现方案一**
+
+```java
+@SpringBootApplication//具备组件扫描功能，但是默认扫描的是启动类所在包及其子包，一旦显式声明了@ComponentScan，他的默认值就失效了
+@ComponentScan(basePackages = {"com.example", "com.itheima",...})
+```
+
+**自动配置实现方案二**
+
+* @Import注解导入。@Import注解导入的类会被Spring加载到IOC容器中，导入的形式主要有一下几种：
+* 1. 导入 普通类
+  2. 导入 配置类
+  3. 导入 ImportSelector 接口实现类
+  4. 直接加上第三方依赖提供的封装好的@Import的注解在启动类上
+
+##### 源码跟踪
+
+# Maven
+
+* 按照功能模块拆分
+* 按层拆分：公共组件，实体类，控制层，业务层，数据访问层
+* 按照功能模块 + 层拆分
+
+### 继承
+
+* 概念：继承描述的是两个工程间的关系，与java中的继承相似，子工程可以继承父工程中的配置信息，常见于依赖关系的继承。
+* 作用：简化依赖配置，统一管理依赖
+* 实现：\<parent> ... \</parent>
+
+1. 创建maven项目，该工程为父工程，设置打包方式pom（默认jar）
+2. 不支持多继承，但是可以多重继承
+3. 在子工程的pom.xml文件中配置继承关系
+4. 在父工程中配置各个工程共有的依赖（子工程会自动继承父工程的依赖）
+
+* 在子工程中，配置了继承关系之后，坐标中的groupId是可以省略的，因为会自动继承父工程的
+* relativePath指定父工程的pom文件的相对位置（如果不指定，将从本地仓库/远程仓库查找）
+* 若父子工程都配置了同一个依赖的不同版本，以子工程的为准
+
+### 版本锁定
+
+在maven中，可以在父工程的pom文件中通过\<dependencyManagement>来统一管理版本，在子工程中要使用也要引入依赖，但是可以不用写版本。
+
+### 自定义属性/引用属性
+
+```xml
+<properties>
+	<lombok.version>...</lombok.version>
+    <jjwt.version>...</jjwt.version>
+</properties>
+```
+
+```xml
+<dependencyManagement>
+	<dependencies>
+    	<dependency>
+        	<groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+### 聚合
+
+注意，要打包分好类的项目，应该先将其他项目安装在本地，然后再打包有启动项的项目，非常繁琐
+
+将多个模块组织成一个整体，同时进行项目的构建
+
+**聚合工程**：一个不具有功能的“空”工程（有且仅有一个pom文件）
+
+**作用**：快速构建项目（无需根据依赖关系手动构建，直接再聚合工程上构建即可）
+
+**实现**：maven可以通过 \<modules> 设置当前聚合工程所包含的子模块名称
+
+```xml
+<modules>
+	<module>../tlias-pojo</module>
+    <module>../tlias-utils</module>
+    <module>../tlias-web-management</module>
+</modules>
+```
+
+**注意**：聚合工程中所包含的模块，再构建时，会自动根据模块间的依赖关系设置构建顺序，与聚合工程中模块的配置书写位置无关
+
+父工程可以同时时聚合工程
+
+#### 私服
+
+私服是一种特殊的远程仓库，他是架设再局域网内的仓库服务，用来代理位于外部的中央仓库，用于解决团队内部的资源共享与资源同步问题
+
+* 项目版本：
+* * RELEASE（发行版本）：功能趋于稳定、当前更新停止，可以用于发行的版本，存储再私服中的RELEASE仓库中
+  * SNAPSHOT（快照版本）：功能不稳定，尚处于开发阶段，即快照版本，存储再私服SNAPSHOT仓库中
+
+1. 设置私服的访问用户名/密码（settings.xml中的servers中配置）
+
+```xml
+<server>
+	<id>maven-releases</id>
+    <username>admin</username>
+    <password>admin</password>
+</server>
+<server>
+	<id>maven-snapshot</id>
+    <username>admin</username>
+    <password>admin</password>
+</server>
+```
+
+2. IDEA的maven工程的pom文件中配置上传（发布）地址
+
+```xml
+<distributionManagement>
+	<repository>
+    	<id>maven-releases</id>
+        <url>http:......</url>
+    </repository>
+    <snapshotRepository>
+    	<id>maven-snapshots</id>
+        <url>http:......</url>
+    </snapshotRepository>
+</distributionManagement>
+```
+
+3. 设置私服依赖下载的仓库组地址（setting.xml中的mirrors、profiles中配置）
+
+```xml
+<mirror>
+	<id>maven-public</id>
+    <mirrorOf>...</mirrorOf>
+    <url>.......</url>
+</mirror>
+```
+
+私服默认不可以访问快照版本，需要手动开启
+
+<img src="../image/image-20250620170007786.png" alt="image-20250620170007786" style="zoom:50%;" />
+
+最后，上传的话只需要点击maven生命周期的deploy就可以了
+
+# Linux部署
+
+VMware虚拟机
+
+CentOS是Linux的发型版本
+
+### 远程连接工具
+
+* 常用SSH（Secure Shell，安全外壳协议）远程连接工具：Putty、SecureCRT、Xshell、FinalShell等
+
+### Linux目录结构
+
+* bin：存放二进制可执行文件
+* boot：存放系统引导时使用的各种文件
+* dev：存放设备为文件
+* **etc：存放系统配置文件**
+* home：系统用户的文件
+* lib：存放程序运行时所需的共享库和内核模块
+* opt：额外安装的可选应用程序包所放置的位置
+* **root：超级用户目录**
+* sbin：存放二进制可执行文件，只有root用户才能访问
+* tmp：存放临时文件
+* **usr：存放系统应用程序**
+* var：存放运行时需要改变数据的文件，例如日志
+
+### Linux命令
+
+* Linux命令格式：command [-options] [parameter]
+* 说明：
+* * command：命令名
+  * [-options]：选项，课用来对命令惊醒控制，也可以省略（可选）
+  * [parameter]：参数，可以是零个，一个或多个（可选）
+
+##### ls
+
+* 作用：显示指定目录下的内容
+* 语法：ls [-al] [dir]
+* 选项：
+* * -a：显示所有文件及目录（. 开头的隐藏文件也会列出）
+  * -l：除文件名称外，同时将文件类型（d表示目录， -表示文件）、权限、拥有者、文件大小等信息详细列出
+
+##### cd
+
+*作用：用于切换当前目录
