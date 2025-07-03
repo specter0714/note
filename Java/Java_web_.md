@@ -2705,3 +2705,22 @@ CentOS是Linux的发型版本
 
 当我们利用Docker安装应用时，Docker会自动搜索并下载应用镜像（image）。镜像不仅包含应用本身，还包含应用运行所需要的环境、配置、系统函数库。Docker会在运行镜像时创建一个隔离的环境，称为容器
 
+# @Configuration
+
+在Spring框架中，@Configuration是一个关键注解，用于定义Java配置类，他的作用类似于传统的xml配置文件（如applicationContext.xml），但使用Java代码来声明和组织Bean定义，使配置更加类型安全易于维护。
+
+**核心功能**
+
+* 定义Bean：使用@Bean注解在配置类中声明Bean，替代XML中的\<bean>标签
+* 组件扫描：通过@ComponentScan自动发现并注册带有@Component注解的组件
+* 配置依赖注入：在方法参数中声明依赖，Spring会自动注入匹配的Bean
+* 支持AOP和事务：可以配置切面（@Aspect）和事务管理（@EnableTransactionManagement）
+
+# @Bean
+
+使Spring框架中的一个注解，用于**将一个方法返回的对象注册为Spring容器中的Bean**。
+
+* Spring容器管理：当在一个方法上使用@Bean注解时，Spring会在容器启动时调用该方法，并将方法的返回值作为Bean注册到容器中，这样就可以在其他地方通过依赖注入来使用这个Bean。
+* 配置类支持：@Bean通常与@Configuration注解一起使用。@Configuration标记的类表示这是一个配置类，相当于XML配置文件。在这个类中，每个带有@Bean的方法都会被Spring容器处理
+* 声明周期管理：Spring容器都会负责管理@Bean标记的对象的生命周期，包括创建、初始化、销毁等过程。
+* 作用域控制：默认情况下，@Bean常见的Bean时单例的（Singleton），即在整个应用上下文中只存在一个实例。也可以通过@Scope直接来改变起作用域。

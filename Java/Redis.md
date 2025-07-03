@@ -120,8 +120,81 @@ SortedSet常见命令：
 * zcard key：获取SortedSet中的元素个数
 * zcount key min max：统计score值在给定范围内的所有元素的个数
 * zincrby key increment member：让SortedSet中的指定元素自增，步长为指定的increment值
-* zrange key start stop：按照score排序后，排名[start, stop]区间的member
+* zrange key start stop：按照score排序后，排名[start, stop]区间的member，索引从0开始
 * zdiff、zinter、zunion：求差集、交集、并集
 
 **注意：所有的排名默认都是升序，如果要降序，在命令z后面添加rev即可（reverse，反转）**
+
+# Spring--data-redis
+
+application.yml配置
+
+```yaml
+spring:
+  data:
+    redis:
+      host: 192.168.100.128 #服务器地址
+      port: 6379
+      password: 1234
+      lettuce:  #使用lettuce客户端（默认），如果使用jedis要引入jedis依赖
+        pool:
+          max-active: 8 #最大连接
+          max-idle: 8 #最大空闲连接
+          min-idle: 0 #最小空闲连接
+          max-wait: 100 #连接池最大阻塞等待时间
+      database: 0 #指定要使用的数据库编号
+      timeout: 5000 #连接超时时间（ms）
+```
+
+# 配置类指定如何序列化
+
+```java
+package com.heima.redis.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
+
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory){
+        //创建RedisTemplate对象
+        RedisTemplate template = new RedisTemplate<String, Object>();
+        //设置连接工厂
+        template.setConnectionFactory(connectionFactory);
+        //创建JSON序列化工具
+        GenericJackson2JsonRedisSerializer jsonRedisSerializer = new GenericJackson2JsonRedisSerializer();
+        //设置KEY得序列化
+        template.setKeySerializer(RedisSerializer.string());
+        template.setHashKeySerializer(RedisSerializer.string());
+        //设置Value得序列化
+        template.setValueSerializer(jsonRedisSerializer);
+        template.setHashValueSerializer(jsonRedisSerializer);
+        return template;
+    }
+}
+```
+
+# StringRedisTemplate
+
+**为了节省内存空间，我们并不会使用JSON序列化器来处理value，而是统一使用String序列化器，要求只能存储String类型的key和value，当需要Java对象时，手动完成对象的序列化和反序列化。（比如Gson）**
+
+Spring默认提供了一个StringRedisTemplate类，它的key和value的序列化方式默认就是String方式。省去了我们自定义RedisTemplate的过程
+
+# 基于Session实现登录
+
+| 发送短信验证码      | 短信验证码登录、注册             | 校验登录状态                |
+| ------------------- | -------------------------------- | --------------------------- |
+| 提交手机号          | 提交手机号和验证码               | 请求并携带cookie            |
+| 校验手机号          | 校验验证码                       | 从session中获取用户         |
+| 生成验证码          | 根据手机号查询用户信息           | 判断用户是否存在            |
+| 保存验证码到Session | 用户是否存在                     | 存在，保存用户到ThreadLocal |
+| 发送验证码          | 存在，保存用户到Session          | 不存在，拦截                |
+|                     | 不存在，创建新用户，保存到数据库 |                             |
+|                     |                                  |                             |
 
