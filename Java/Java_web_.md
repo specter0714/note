@@ -2444,6 +2444,8 @@ java -Dserver.port=9000 -jar tlias-web-management-0.0.1-SNAPSHOT.jar --server.po
 
 ##### 第三方Bean
 
+@Bean：**将方法返回值作为Bean交给IOC容器管理**
+
 * 如果要管理的bean对象来自第三方（不是自定义的），是无法用 @Component 及衍生注解声明bean的，就需要用到 @Bean 注解
 
 ```java
