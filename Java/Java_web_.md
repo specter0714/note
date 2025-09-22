@@ -1073,9 +1073,11 @@ $application.yaml / application.yml$文件：
 
 ```yaml
 spring:
-	datesource:
+	datasource:
 		driver-class-name: com.mysql.jdbc.Driver
-		url: jdbc:mysql://localhost:3306/web01
+		url: 
+			jdbc:
+				mysql: //localhost:3306/web01
 		username: root
 		password: 1234
 ```
@@ -2124,3 +2126,603 @@ public class DemoFilter implements Filter {
 }
 ```
 
+**注意**：
+
+* 如果过滤器中不执行放行操作，过滤器拦截到请求之后，就不会访问对应的资源。
+* 放行：chain.doFilter(request, respsonse)
+
+令牌校验Filter-流程
+
+1. 获取请求url
+2. 判断请求url中是否包含login，如果包含，说明是登录操作，放行
+3. 获取请求头中的令牌（token）
+4. 判断令牌是否存在，如果不存在，响应401
+5. 解析token，如果解析失败，响应401
+6. 放行
+
+Filter执行流程
+
+<img src="../image/image-20250604195243145.png" alt="image-20250604195243145" style="zoom: 50%;" />
+
+放行后，执行完毕，又会回到过滤器中，执行放行后的操作，最终给前端响应数据
+
+FIlter-拦截路径
+
+Filter可以根据需求，配置不同的拦截资源路径：
+
+| 拦截路径     | urlPatterns | 含义                                |
+| ------------ | ----------- | ----------------------------------- |
+| 拦截具体路径 | /login      | 只有访问 /login 路径时，才会被拦截  |
+| 目录拦截     | /emps/*     | 访问 /emps 下的所有资源，都会被拦截 |
+| 拦截所有     | /*          | 访问所有资源，都会被拦截            |
+
+Filter-过滤器链
+
+介绍：一个web应用中，可以配置多个过滤器，这多个过滤器就形成了一个**过滤器链**
+
+顺序：注解配置的Filter，优先级时按照过滤器类名（字符串）的自然排序
+
+![image-20250604202609563](../image/image-20250604202609563.png)
+
+### 拦截器Interceptor
+
+* 概念：是一种动态拦截方法调用的机制，类似于过滤器。Spring框架中提供的，主要用来动态拦截控制器方法的执行。
+* 作用：拦截请求，在指定的方法调用前后根据业务需要执行预先设定的代码
+
+请求 --- 拦截器 --- 资源 --- 拦截器 --- 响应
+
+1. 定义拦截器，实现HandlerINterceptor接口，并实现其所有方法。因为拦截器Interceptor是Spring提供的，上面加个注解@Component交给IOC容器代理
+
+![image-20250604204914312](../image/image-20250604204914312.png)
+
+2. 注册拦截器，在类上加一个注解@Configuration表明这是一个配置类，添加一个拦截器，拦截路径为 /** 标识拦截所有
+
+![image-20250604204828269](../image/image-20250604204828269.png)
+
+**令牌校验-拦截器**：
+
+1. 获取请求url
+2. 判断请求url中是否包含login，如果包含，说明是登录操作，放行
+3. 获取请求头中的令牌（token）
+4. 判断令牌是否存在，如果不存在，响应401
+5. 解析token，如果解析失败，响应401
+6. 放行
+
+**拦截器-拦截路径**：
+
+* 拦截器可以根据需求，配置不同的拦截路径：
+
+```java
+@Override
+public void addInterceptors(InterceptorRegistry registry){
+    registry.addInterceptor(demoInterceptor)//添加拦截器
+        .addPathPatterns("/**")//需要拦截哪些资源
+        .excludePathPatterxs("/login");//不需要拦截哪些资源
+}
+```
+
+| 拦截路径  | 含义                 | 举例                                                    |
+| --------- | -------------------- | ------------------------------------------------------- |
+| /*        | 一级路径             | 能匹配/depts，/emps，/login，**不能匹配 /depts/1**      |
+| /**       | 任意级路径           | 能匹配/depts，/depts/1，/depts/1/2                      |
+| /depts/*  | /depts下的一级路径   | 能匹配/depts/1，**不能能匹配/depts/1/2，/depts**        |
+| /depts/** | /depts下的任意级路径 | 能匹配/depts，/depts/1，/depts/1/2，**不能匹配/emps/1** |
+
+如果既定义了**过滤器**，又定义了**拦截器**，会先经过过滤器，再到拦截器
+
+![image-20250605103320771](../image/image-20250605103320771.png)
+
+* Filter 和 Interceptor 的区别：
+* 1. 接口规范不同：过滤器需要实现Filter接口，而拦截器需要实现HandlerInterceptor接口。
+  2. 拦截范围不同：过滤器Filter会拦截所有的资源，而Interceptor只会拦截Spring环境中的资源。
+
+# AOP
+
+* AOP：Aspect Oriented Programming （面向切面编程、面向方面编程），可简单理解为就是面向特定方法编程。
+
+* 场景：案例中部分业务方法运行较慢，定位执行耗时较长的接口，此时需要统计每个业务方法的执行耗时。
+* 优势
+* 1. 减少重复代码
+  2. 代码无入侵
+  3. 提高开发效率
+  4. 维护方便
+
+### 入门
+
+**SpringAOP快速入门**：
+
+1. 导入依赖：在pom.xml中引入AOP依赖
+2. 编写AOP程序：针对特定的方法根据业务需要进行编程
+
+**AOP入门示例**：
+
+```java
+@Slf4j
+@Aspect
+@Component
+public class RecordTimeAspect {
+
+    @Around("execution(*  com.itheima.service.impl.*.*(..))")
+    public Object recordTime(ProceedingJoinPoint pjp) throws Throwable {
+        //1.记录方法运行的开始时间
+        Long begin = System.currentTimeMillis();
+        //2.执行原始方法
+        Object object = pjp.proceed();
+        //3.记录结束时间，记录耗时
+        Long end = System.currentTimeMillis();
+        log.info("方法耗时： {} ms", end - begin);
+        return object;
+    }
+}
+```
+
+### AOP核心概念
+
+* 连接点：JoinPoint，可以被AOP控制的方法（暗含方法执行时的相关信息）
+* 通知：Advice，指那些重复的逻辑，也就是共性功能（最终体现为一个方法）
+* 切入点：PointCut，匹配连接点的条件，通知仅会在切入点方法执行时被应用
+* 切面：Aspect，描述通知与切入点的对应关系（通知+切入点）
+* 目标对象：Target，通知所应用的对象
+
+@Around("")，括号里的就是**切入点表达式**
+
+AOP执行时会**动态代理**，生成一个代理对象，代理对象（基于接口的JDK代理，基于继承的CGLIB代理，默认情况下，如果目标类实现了至少一个接口，Spring使用JDK动态代理，否则使用CGLIB），交给Spring的IOC容器代理，这个代理对象它是重写的原来的方法，方法的实现是**通知+目标对象**，然后再运行时，注入service的时候，注入的就是这个代理对象，而不是原来的。
+
+![image-20250605201622638](../image/image-20250605201622638.png)
+
+### 通知类型
+
+**根据通知方法执行时机的不同，将通知类型分为以下常见的五类：**
+
+1. @Around：环绕通知，此注解标注的通知方法在目标方法前后都被执行
+2. @Before：前置通知，此注解标注的通知方法在目标方法前被执行
+3. @After：后置通知，此注解标注的通知方法在目标方法后被执行，无论是否有异常都会执行
+4. @AfterReturning：返回后通知，此注解标注的通知方法在目标方法后被执行，有异常不会执行
+5. @AfterThrowing：异常后通知，此注解标注的通知方法发生异常后执行
+
+**注意**：@Around环绕通知需要自己调用ProceedingJoinPoint.proceed() 来让原始方法执行，其他通知不需要考虑目标方法执行
+
+### 通知顺序
+
+* 当有多个切面的切入点都匹配到了目标项目，目标方法运行时，多个通知方法都会被执行。
+* 执行顺序：
+* 不同切面类中，默认按照切面类的类型字母排序：
+* * 目标方法前的通知方法：字母排名靠前的先执行
+  * 目标方法后的通知方法：字母排名靠前的后执行
+* 用 @Order（数字）加载切面类上面来控制顺序
+* * 目标方法前的通知方法：数字小的先执行
+  * 目标方法后的通知方法：数字小的后执行
+
+### 切入点表达式
+
+* 介绍：描述切入点方法的一种表达式
+* 作用：用来决定项目中的哪些方法需要加入通知
+* 常见形式：
+* 1. execution(......)：根据方法的签名来匹配
+  2. @annotation(......)：根据注解匹配
+
+```java
+@Before("execution(public void com.itheima.service.impl.DeptServiceImpl.delete(java.lang.Integer))")
+public void before(JoinPoint joinPoint){}
+
+@Before("@annotation(com.itheima.anno.Log)")
+public void before(){}
+```
+
+##### **execution**:
+
+根据方法的返回值、包名、类名、方法名、方法参数等信息来匹配，语法为：
+
+```java
+execution(访问修饰符 返回值 包名.类名.方法名（方法参数） throws 异常)
+```
+
+**其中可省略部分**
+
+1. 访问修饰符：可省略（比如：public、protected）
+2. 包名.类名：可省略
+3. throws 异常：可省略（注意是方法上声明抛出的异常，不是实际抛出的异常）
+
+**可以使用通配符描述切入点**
+
+1. *：单独的任意符号，可以通配任意返回值、包名、类名、方法名、任意类型的一个参数，也可以通配包、类、方法名的一部分
+
+```java
+execution(* com.*.service.*.uupdate*(*))
+```
+
+2.  ..：多个连续的任意符号，或任意类型、任意个数的参数
+
+```java
+execution(* com.itheima..DeptService.*(..))
+```
+
+execution之间可以用  || 或者 &&  或 | 连接。
+
+书写建议：
+
+1. 所有业务方法名在命名时尽量规范，方便切入点表达式快速匹配。如：findXxx，updateXxx。
+2. 描述切入点方法通常**基于接口描述，而不是直接描述实现类**，增强拓展性。
+3. 在满足业务需要的前提下，尽量缩小切入点的匹配范围。如：包名尽量不使用 .. ，不使用*匹配单个包
+
+##### annotation
+
+@annotation切入点表达式，用于匹配标识有特定注解的方法。
+
+```java
+package com.itheima.anno
+public @interface LogOperation{
+    
+}
+```
+
+```java
+@Around(@annotation(com.itheima.anno.LogOperation))
+public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable{
+	......
+}
+```
+
+```java
+@LogOperation
+@PostMapping
+public Result save(@RequestBody Dept dept){
+	......
+}
+```
+
+### 连接点
+
+* 在Spring中用JoinPoint抽象了连接点，用它可以获得方法执行时的相关信息，如目标类名、方法名、方法参数等。
+* * 对于@Around通知，获取连接点信息只能使用 ProceedingJoinPoint
+  * 对于其他四种通知，获取连接点信息只能使用 JoinPoint，他是 ProceedingJoinPoint 的父类
+
+# ThreadLocal
+
+* ThreadLocal并不是一个Thread，而是Thread的局部变量。
+* ThreadLocal为每一个线程提供一份单独的存储空间，具有线程隔离的效果，不同的线程之间不会相互干扰。
+* ThreadLocal常用方法：
+* * public void set(T value)，设置当前线程局部变量的值
+  * public T get()，返回当前线程所对应的线程局部变量的值
+  * public void remove()，移除当前线程的线程局部变量
+
+整个线程的执行流程
+
+![image-20250611115807347](../image/image-20250611115807347.png)
+
+可以定义一个类，里面声明一个静态的ThreadLocal变量，这样就可以跨类访问同一线程的ThreadLocal变量了
+
+# SpringBoot原理
+
+### 配置文件优先级
+
+propertise > yml > yaml
+
+**注意：虽然springboot支持多种配置文件，但是在项目开发时，推荐统一使用一种格式的配置（yml是主流）**
+
+SpringBoot除了支持配置文件属性配置，还支持Java系统属性和命令行参数的方式进行属性配置。
+
+Java系统属性：-Dserver.port=9000
+
+命令行参数：--server.port=9000
+
+命令行参数 > Java系统属性 > properties > yml > yaml
+
+* 执行maven打包指令package
+* 执行java指令，运行jar包（Java系统属性加在前面，命令行参数加在后面）
+
+```
+java -Dserver.port=9000 -jar tlias-web-management-0.0.1-SNAPSHOT.jar --server.port=10010
+```
+
+### Bean管理
+
+##### 作用域
+
+* Spring支持五种作用域，后三种在web环境才生效：
+
+  | 作用域      | 说明                                               |
+  | ----------- | -------------------------------------------------- |
+  | singleton   | 容器内同 名称 的 bean 只有一个实例（单例）（默认） |
+  | prototype   | 每次使用该 bean 时会创建新的实例（非单例/多例）    |
+  | request     | 每个请求范围内会创建新的实例（web环境中，了解）    |
+  | session     | 每个会话范围内会创建新的实例（web环境中，了解）    |
+  | application | 每个应用范围内会创建新的实例（web环境中，了解）    |
+
+通过$@Scope$注解来指定类型
+
+默认单例的bean时在项目启动时，创建的，创建完毕后，会将该bean存入IOC容器中
+
+可以在类上加注解@Lazy，可以延迟bean的创建，不会在项目启动时立即创建，会在第一次使用这个bean时来创建这个bean
+
+* 单例的bean：
+* * 如果是无状态的，不存在多个线程共用资源的问题，是线程安全的，更加节约资源，性能更高
+  * 如果是有状态的，内部会保存状态信息，多个线程会同时操作该bean，可能会出现数据不一致，线程不安全
+
+* 多例的bean：
+* * 如果是有状态的，可以用来储存数据，每次得到的bean都是一个新的bean，是线程安全的
+
+##### 第三方Bean
+
+@Bean：**将方法返回值作为Bean交给IOC容器管理**
+
+* 如果要管理的bean对象来自第三方（不是自定义的），是无法用 @Component 及衍生注解声明bean的，就需要用到 @Bean 注解
+
+```java
+@SpringBootApplication
+public class SpringbootWebConfigApplication {
+    @Bean //将方法返回值交给IOC容器管理，成为IOC容器的bean对象
+    public AliyunOSSOperator aliyunOSSOperator(AliyunOSSProperties ossOperator){
+        return new AliyunOSSOperator(ossOperator);
+    }
+    public static void main(String[] args) {
+        SpringApplication.run(SpringbootWebConfigApplication.class, args);
+    }
+}
+```
+
+**注意**：如果第三方bean需要依赖其他bean对象，直接在bean定义方法中设置形参即可，容器会根据类型自动装配，通过@Bean注解name或value属性可以声明bean的名称，如果不指定，默认bean的名称就是方法名
+
+* 若要管理的第三方bean对象，建议对这些bean进行集中分类配置，可以通过@Configuration注解声明一个配置类。
+
+### 起步依赖
+
+maven的依赖传递
+
+### 自动配置
+
+* SpringBoot的自动配置就是当spring项目启动后，一些配置类，bean对象就自动存入到了IOC容器中，不需要我们手动去声明，从而简化了开发，省去繁琐的配置操作。
+
+##### 实现方案
+
+**自动配置实现方案一**
+
+```java
+@SpringBootApplication//具备组件扫描功能，但是默认扫描的是启动类所在包及其子包，一旦显式声明了@ComponentScan，他的默认值就失效了
+@ComponentScan(basePackages = {"com.example", "com.itheima",...})
+```
+
+**自动配置实现方案二**
+
+* @Import注解导入。@Import注解导入的类会被Spring加载到IOC容器中，导入的形式主要有一下几种：
+* 1. 导入 普通类
+  2. 导入 配置类
+  3. 导入 ImportSelector 接口实现类
+  4. 直接加上第三方依赖提供的封装好的@Import的注解在启动类上
+
+##### 源码跟踪
+
+# Maven
+
+* 按照功能模块拆分
+* 按层拆分：公共组件，实体类，控制层，业务层，数据访问层
+* 按照功能模块 + 层拆分
+
+### 继承
+
+* 概念：继承描述的是两个工程间的关系，与java中的继承相似，子工程可以继承父工程中的配置信息，常见于依赖关系的继承。
+* 作用：简化依赖配置，统一管理依赖
+* 实现：\<parent> ... \</parent>
+
+1. 创建maven项目，该工程为父工程，设置打包方式pom（默认jar）
+2. 不支持多继承，但是可以多重继承
+3. 在子工程的pom.xml文件中配置继承关系
+4. 在父工程中配置各个工程共有的依赖（子工程会自动继承父工程的依赖）
+
+* 在子工程中，配置了继承关系之后，坐标中的groupId是可以省略的，因为会自动继承父工程的
+* relativePath指定父工程的pom文件的相对位置（如果不指定，将从本地仓库/远程仓库查找）
+* 若父子工程都配置了同一个依赖的不同版本，以子工程的为准
+
+### 版本锁定
+
+在maven中，可以在父工程的pom文件中通过\<dependencyManagement>来统一管理版本，在子工程中要使用也要引入依赖，但是可以不用写版本。
+
+### 自定义属性/引用属性
+
+```xml
+<properties>
+	<lombok.version>...</lombok.version>
+    <jjwt.version>...</jjwt.version>
+</properties>
+```
+
+```xml
+<dependencyManagement>
+	<dependencies>
+    	<dependency>
+        	<groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+### 聚合
+
+注意，要打包分好类的项目，应该先将其他项目安装在本地，然后再打包有启动项的项目，非常繁琐
+
+将多个模块组织成一个整体，同时进行项目的构建
+
+**聚合工程**：一个不具有功能的“空”工程（有且仅有一个pom文件）
+
+**作用**：快速构建项目（无需根据依赖关系手动构建，直接再聚合工程上构建即可）
+
+**实现**：maven可以通过 \<modules> 设置当前聚合工程所包含的子模块名称
+
+```xml
+<modules>
+	<module>../tlias-pojo</module>
+    <module>../tlias-utils</module>
+    <module>../tlias-web-management</module>
+</modules>
+```
+
+**注意**：聚合工程中所包含的模块，再构建时，会自动根据模块间的依赖关系设置构建顺序，与聚合工程中模块的配置书写位置无关
+
+父工程可以同时时聚合工程
+
+#### 私服
+
+私服是一种特殊的远程仓库，他是架设再局域网内的仓库服务，用来代理位于外部的中央仓库，用于解决团队内部的资源共享与资源同步问题
+
+* 项目版本：
+* * RELEASE（发行版本）：功能趋于稳定、当前更新停止，可以用于发行的版本，存储再私服中的RELEASE仓库中
+  * SNAPSHOT（快照版本）：功能不稳定，尚处于开发阶段，即快照版本，存储再私服SNAPSHOT仓库中
+
+1. 设置私服的访问用户名/密码（settings.xml中的servers中配置）
+
+```xml
+<server>
+	<id>maven-releases</id>
+    <username>admin</username>
+    <password>admin</password>
+</server>
+<server>
+	<id>maven-snapshot</id>
+    <username>admin</username>
+    <password>admin</password>
+</server>
+```
+
+2. IDEA的maven工程的pom文件中配置上传（发布）地址
+
+```xml
+<distributionManagement>
+	<repository>
+    	<id>maven-releases</id>
+        <url>http:......</url>
+    </repository>
+    <snapshotRepository>
+    	<id>maven-snapshots</id>
+        <url>http:......</url>
+    </snapshotRepository>
+</distributionManagement>
+```
+
+3. 设置私服依赖下载的仓库组地址（setting.xml中的mirrors、profiles中配置）
+
+```xml
+<mirror>
+	<id>maven-public</id>
+    <mirrorOf>...</mirrorOf>
+    <url>.......</url>
+</mirror>
+```
+
+私服默认不可以访问快照版本，需要手动开启
+
+<img src="../image/image-20250620170007786.png" alt="image-20250620170007786" style="zoom:50%;" />
+
+最后，上传的话只需要点击maven生命周期的deploy就可以了
+
+# Linux部署
+
+VMware虚拟机
+
+CentOS是Linux的发型版本
+
+### 远程连接工具
+
+* 常用SSH（Secure Shell，安全外壳协议）远程连接工具：Putty、SecureCRT、Xshell、FinalShell等
+
+### Linux目录结构
+
+* bin：存放二进制可执行文件
+* boot：存放系统引导时使用的各种文件
+* dev：存放设备为文件
+* **etc：存放系统配置文件**
+* home：系统用户的文件
+* lib：存放程序运行时所需的共享库和内核模块
+* opt：额外安装的可选应用程序包所放置的位置
+* **root：超级用户目录**
+* sbin：存放二进制可执行文件，只有root用户才能访问
+* tmp：存放临时文件
+* **usr：存放系统应用程序**
+* var：存放运行时需要改变数据的文件，例如日志
+
+### Linux命令
+
+* Linux命令格式：command [-options] [parameter]
+* 说明：
+* * command：命令名
+  * [-options]：选项，课用来对命令惊醒控制，也可以省略（可选）
+  * [parameter]：参数，可以是零个，一个或多个（可选）
+
+##### ls
+
+* 作用：显示指定目录下的内容
+* 语法：ls [-al] [dir]
+* 选项：
+* * -a：显示所有文件及目录（. 开头的隐藏文件也会列出）
+  * -l：除文件名称外，同时将文件类型（d表示目录， -表示文件）、权限、拥有者、文件大小等信息详细列出
+
+##### cd
+
+*作用：用于切换当前目录
+
+##### mkdir
+
+创建目录
+
+##### rm
+
+删除文件或目录
+
+##### cat
+
+显示文件的所有内容
+
+##### more
+
+以分页的形式来显示文件内容
+
+##### head
+
+查看文件头部内容
+
+##### cp
+
+复制文件或目录
+
+##### mv
+
+为文件或目录重命名、或移动到其他位置（第二个参数是已存在的目录执行移动）
+
+##### tar
+
+打包、压缩、解包、解压
+
+<img src="../image/image-20250620224922356.png" alt="image-20250620224922356" style="zoom:50%;" />
+
+### 防火墙
+
+### 安装nginx
+
+![image-20250621161114691](../image/image-20250621161114691.png)
+
+# Docker
+
+### 镜像和容器
+
+当我们利用Docker安装应用时，Docker会自动搜索并下载应用镜像（image）。镜像不仅包含应用本身，还包含应用运行所需要的环境、配置、系统函数库。Docker会在运行镜像时创建一个隔离的环境，称为容器
+
+# @Configuration
+
+在Spring框架中，@Configuration是一个关键注解，用于定义Java配置类，他的作用类似于传统的xml配置文件（如applicationContext.xml），但使用Java代码来声明和组织Bean定义，使配置更加类型安全易于维护。
+
+**核心功能**
+
+* 定义Bean：使用@Bean注解在配置类中声明Bean，替代XML中的\<bean>标签
+* 组件扫描：通过@ComponentScan自动发现并注册带有@Component注解的组件
+* 配置依赖注入：在方法参数中声明依赖，Spring会自动注入匹配的Bean
+* 支持AOP和事务：可以配置切面（@Aspect）和事务管理（@EnableTransactionManagement）
+
+# @Bean
+
+使Spring框架中的一个注解，用于**将一个方法返回的对象注册为Spring容器中的Bean**。
+
+* Spring容器管理：当在一个方法上使用@Bean注解时，Spring会在容器启动时调用该方法，并将方法的返回值作为Bean注册到容器中，这样就可以在其他地方通过依赖注入来使用这个Bean。
+* 配置类支持：@Bean通常与@Configuration注解一起使用。@Configuration标记的类表示这是一个配置类，相当于XML配置文件。在这个类中，每个带有@Bean的方法都会被Spring容器处理
+* 声明周期管理：Spring容器都会负责管理@Bean标记的对象的生命周期，包括创建、初始化、销毁等过程。
+* 作用域控制：默认情况下，@Bean常见的Bean时单例的（Singleton），即在整个应用上下文中只存在一个实例。也可以通过@Scope直接来改变起作用域。

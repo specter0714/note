@@ -1356,8 +1356,129 @@ import导入的类，类加载器会优先加载jdk本身文件里的，然后�
 
 实际上类最开始是由BootstarpClassLoader进行加载，BootstarpClassLoader用于加载JDK提供的类，而我们自己编写的类是AppClassLoader加载的，只有BootstarpClassLoader都没有加载的类，才会让AppClassLoader来加载，因此我们自己编写的同名包同名类不会被加载。
 
+# 函数式变成和函数式借口
+
+**我们可以把函数当作参数传入另一个函数中再调用**
+
+可以实现函数的动态调用
+
+* 可以利用java自带的函数式接口
+* 可以自定义函数式接口，接口中必须有且仅有一个抽象方法
+
+```java
+import org.junit.jupiter.api.Test;
+
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+public class FunctionTest {
+    public <T, R> R f(Class<R> type, T t, Function<T, R> function){
+        return function.apply(t);
+    }
+    public <T, M, R> R f(Class<R> type, T t, M m, BiFunction<T, M, R> function){
+        return function.apply(t, m);
+    }
+    @Test
+    public void testFunction(){
+        Integer i = 10;
+        Integer j = 11;
+        String string = f(String.class, i, (op) -> {
+            return "age = " + op;
+        });
+        String string1 = f(String.class, i, j, (op, op1) -> {
+           return "age = " + op + op1;
+        });
+        System.out.println(string + " " + string1);
+    }
+
+    //也可以通过@FunctionalInterface注解自定义函数式接口
+    @FunctionalInterface
+    interface TreParaVoidFunction<T, M, N>{
+        //有且仅有一个抽象方法
+        void apply(T t, M m, N n);
+    }
+
+    public <T, M, N> void f(T t, M m, N n, TreParaVoidFunction<T, M, N> function){
+        function.apply(t, m, n);
+    }
+
+    @Test
+    public void testFunction2(){
+        Integer i = 10;
+        Integer j = 11;
+        Integer p = 12;
+        f(i, j, p, (op, op1, op2) -> {
+            System.out.println(i + j + p);
+        });
+    }
+}
+
+```
+
+# 自定义时间格式
+
+| 模式符 | 含义示例                       |
+| ------ | ------------------------------ |
+| y      | 年                             |
+| M      | 月                             |
+| d      | 日                             |
+| h/H    | 时                             |
+| m      | 分                             |
+| s      | 秒                             |
+| a      | 上午/下午                      |
+| q      | 季度                           |
+| zzzz   | 完整时区名（如：中国标准时间） |
+| z      | 时区偏移量                     |
+
+# ArrayList的自定义排序
+
+```java
+List<ListNode> list = new ArrayList<>();
+Collections.sort(list, (op1, op2) -> {return op1.val - op2.val;});//升序排列
+```
+
+# PriorityQueue
+
+## 堆的自定义排序
+
+```java
+PriorityQueue<Integer> priorityQueue = new PriorityQueue<>((o1, o2) -> o2 - o1);//降序排列，也叫大根堆 
+```
+
+## 堆操作的API
+
+| 方法                         | 功能描述                                                    |
+| ---------------------------- | ----------------------------------------------------------- |
+| boolean add(E e)             | 添加元素，失败时抛出 `IllegalStateException`（容量限制时）  |
+| boolean offer(E e)           | 添加元素，失败时返回 `false`（更推荐使用）                  |
+| E poll()                     | 移除并返回队首元素（优先级最高），队列为空时返回 `null`     |
+| E remove()                   | 移除并返回队首元素，队列为空时抛出 `NoSuchElementException` |
+| E peek()                     | 返回队首元素（不删除），队列为空时返回 `null`               |
+| E element()                  | 返回队首元素，队列为空时抛出 `NoSuchElementException`       |
+| int size()                   | 返回元素个数                                                |
+| boolean isEmpty()            | 判断队列是否为空                                            |
+| void clear()                 | 清空队列                                                    |
+| `boolean contains(Object o)` | 判断是否包含指定元素                                        |
+| Iterator<E> iterator()       | 返回迭代器（迭代顺序不保证有序）                            |
 
 
 
+# stream流里的方法
 
-。
+## peek()方法：
+
+* 只要用于**调试和副作用操作**（如打印日志、修改对象状态）
+* 接收一个**Consumer**函数式接口、对每个元素执行操作但不改变元素本身（Consumer接口的函数不需要返回值）
+* 返回的式**Stream\<T>**，元素类型不变
+
+## map()方法：
+
+* 用于**转换元素**，将一种类型的元素转换为另一种元素
+* 接受一个**Function**函数式接口，对每个元素进行转换（Function接口的函数需要返回值）
+* 返回的是**Stream\<R>**，元素类型可能改变
+
+# >> 和 >>> 的区别
+
+**\>>:** 是有符号右移，就是当最高位是 0 时（正数），右移后的最高位补 0，当最高位时 1 时（负数），右移后的最高位补 1
+
+**\>>>:** 是无符号右移，就是不管最高位是 0 还是 1 （是正数还是负数），右移后的最高位补 0
