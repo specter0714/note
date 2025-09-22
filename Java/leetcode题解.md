@@ -571,3 +571,379 @@ class Solution {
 }
 ```
 
+# 101.对称二叉树
+
+通过分别对称移动来递归判断是否相等。
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode() {}
+ *     TreeNode(int val) { this.val = val; }
+ *     TreeNode(int val, TreeNode left, TreeNode right) {
+ *         this.val = val;
+ *         this.left = left;
+ *         this.right = right;
+ *     }
+ * }
+ */
+class Solution {
+    private boolean st = true;
+    public boolean isSymmetric(TreeNode root) {
+        f(root.left, root.right);
+        return st;
+    }
+
+    public void f(TreeNode p, TreeNode q){
+        if(p == null && q == null)return ;
+        if(p == null || q == null){
+            st = false;
+            return ;
+        }
+        if(p != null && q != null){
+            f(p.left, q.right);
+            f(p.right, q.left);
+        }
+        if(p.val != q.val)st = false;
+    }
+
+}
+```
+
+# 543.二叉树的直径
+
+**思路：**转化为求左右子树深度和的最大值（就是选一个节点，左右两边同时dfs）
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode() {}
+ *     TreeNode(int val) { this.val = val; }
+ *     TreeNode(int val, TreeNode left, TreeNode right) {
+ *         this.val = val;
+ *         this.left = left;
+ *         this.right = right;
+ *     }
+ * }
+ */
+class Solution {
+    int max = 0;
+    public int diameterOfBinaryTree(TreeNode root) {
+        dfs(root);
+        return max;
+    }
+
+    private int dfs(TreeNode u){
+        if(u == null)return 0;
+        int l = dfs(u.left);
+        int r = dfs(u.right);
+        max = Math.max(max, l + r);
+        return Math.max(l ,r) + 1;
+    }
+}
+```
+
+# 108.将有序数组转换为二叉搜索树
+
+**思路：**采用dfs遍历每个节点，给每个节点赋值
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode() {}
+ *     TreeNode(int val) { this.val = val; }
+ *     TreeNode(int val, TreeNode left, TreeNode right) {
+ *         this.val = val;
+ *         this.left = left;
+ *         this.right = right;
+ *     }
+ * }
+ */
+class Solution {
+    public TreeNode sortedArrayToBST(int[] nums) {
+        return dfs(nums, 0, nums.length - 1);
+    }
+
+    private TreeNode dfs(int[] nums, int l, int r){
+        if(l > r)return null;
+        int mid = l + r + 1 >> 1;
+        TreeNode root = new TreeNode(nums[mid]);
+        root.left = dfs(nums, l, mid - 1);
+        root.right = dfs(nums, mid + 1, r);
+        return root;
+    }
+}
+```
+
+# 98.验证二叉搜索树
+
+**思路：**若当前节点再一个节点的**左分支**，那么他一定小于这个节点，若当前节点在一个节点的**右分支**，那么他一定大于这个节点。
+
+**注意：**注意是左分支和右分支，不是左子节点和右子节点，对于每个节点都要考虑在祖宗节点中的位置，所以**可以从上往下递归把这个节点要小于的最小数和要大于的最大数传递下来**
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode() {}
+ *     TreeNode(int val) { this.val = val; }
+ *     TreeNode(int val, TreeNode left, TreeNode right) {
+ *         this.val = val;
+ *         this.left = left;
+ *         this.right = right;
+ *     }
+ * }
+ */
+class Solution {
+    private boolean st = true;
+    public boolean isValidBST(TreeNode root) {
+        dfs(root, (long)Math.pow(2, 33), -(long)Math.pow(2, 33));
+        return st;
+    }
+    private void dfs(TreeNode u, long min, long max){
+        if(u == null)return ;
+        int op = u.val;
+        if(op >= min || op <= max){
+            st = false;
+            return ;
+        }
+        dfs(u.left, Math.min(min, op), max);
+        dfs(u.right, min, Math.max(max, op));
+    }
+}
+```
+
+# 146.LRU缓存
+
+**妙手：**使用**伪头节点**与**伪尾节点**，使操作不用考虑临界情况，这样每个中间的节点都有prev节点和next节点
+
+```java
+public class LRUCache {
+    class DLinkedNode {
+        int key;
+        int value;
+        DLinkedNode prev;
+        DLinkedNode next;
+        public DLinkedNode() {}
+        public DLinkedNode(int _key, int _value) {key = _key; value = _value;}
+    }
+
+    private Map<Integer, DLinkedNode> cache = new HashMap<Integer, DLinkedNode>();
+    private int size;
+    private int capacity;
+    private DLinkedNode head, tail;
+
+    public LRUCache(int capacity) {
+        this.size = 0;
+        this.capacity = capacity;
+        // 使用伪头部和伪尾部节点
+        head = new DLinkedNode();
+        tail = new DLinkedNode();
+        head.next = tail;
+        tail.prev = head;
+    }
+
+    public int get(int key) {
+        DLinkedNode node = cache.get(key);
+        if (node == null) {
+            return -1;
+        }
+        // 如果 key 存在，先通过哈希表定位，再移到头部
+        moveToHead(node);
+        return node.value;
+    }
+
+    public void put(int key, int value) {
+        DLinkedNode node = cache.get(key);
+        if (node == null) {
+            // 如果 key 不存在，创建一个新的节点
+            DLinkedNode newNode = new DLinkedNode(key, value);
+            // 添加进哈希表
+            cache.put(key, newNode);
+            // 添加至双向链表的头部
+            addToHead(newNode);
+            ++size;
+            if (size > capacity) {
+                // 如果超出容量，删除双向链表的尾部节点
+                DLinkedNode tail = removeTail();
+                // 删除哈希表中对应的项
+                cache.remove(tail.key);
+                --size;
+            }
+        }
+        else {
+            // 如果 key 存在，先通过哈希表定位，再修改 value，并移到头部
+            node.value = value;
+            moveToHead(node);
+        }
+    }
+
+    private void addToHead(DLinkedNode node) {
+        node.prev = head;
+        node.next = head.next;
+        head.next.prev = node;
+        head.next = node;
+    }
+
+    private void removeNode(DLinkedNode node) {
+        node.prev.next = node.next;
+        node.next.prev = node.prev;
+    }
+
+    private void moveToHead(DLinkedNode node) {
+        removeNode(node);
+        addToHead(node);
+    }
+
+    private DLinkedNode removeTail() {
+        DLinkedNode res = tail.prev;
+        removeNode(res);
+        return res;
+    }
+}
+```
+
+# 236.二叉树的最近公共祖先（妙妙妙）
+
+![image-20250920161444612](../image/image-20250920161444612.png)
+
+## 方法一：
+
+**思路：**判断每个节点，他的后代节点是否有target节点；
+
+* 情况一，没有target节点，返回null
+* 情况二，有一个target节点，返回哪个target节点
+* 情况三，有两个target节点，返回自己作为target节点
+
+**原理：**把两个target节点传递上去，最终汇聚到一个最近的公共祖先节点，然后再把这个祖先节点传递上去
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode(int x) { val = x; }
+ * }
+ */
+class Solution {
+    public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+        if(root == null || root == p || root == q)return root;
+        TreeNode left = lowestCommonAncestor(root.left, p, q);
+        TreeNode right = lowestCommonAncestor(root.right, p, q);
+        return left == null ? right : (right == null ? left : root);
+    }
+}
+```
+
+## 方法二：
+
+**思路：**利用储存所有节点的前驱节点，然后找到最近公共祖宗节点
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode(int x) { val = x; }
+ * }
+ */
+class Solution {
+    Map<TreeNode, TreeNode> pre = new HashMap<>();
+    public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+        dfs(root);
+        return find(p, q);
+    }
+
+    private void dfs(TreeNode u){
+        if(u == null)return ;
+        pre.put(u.left, u);
+        pre.put(u.right, u);
+        dfs(u.left);
+        dfs(u.right);
+    }
+
+    private TreeNode find(TreeNode p, TreeNode q){
+        List<TreeNode> pList = new ArrayList<>();
+        List<TreeNode> qList = new ArrayList<>();
+        while(true){
+            if(p == null && q == null)break;
+            if(p != null){pList.add(p);p = pre.get(p);}
+            if(q != null){qList.add(q);q = pre.get(q);}
+        }
+        TreeNode ans = null;
+        for(int i = pList.size() - 1, j = qList.size() - 1; i >= 0 && j >= 0; i--, j--){
+            if(pList.get(i) != qList.get(j))break;
+            ans = pList.get(i);
+        }
+        return ans;
+    }
+}
+```
+
+# 124.二叉树中的最大路径和
+
+**思路：**每个节点都找一下，左子树的最大路径和，右子树的最大路径和，如果为左右子树都为负数就只传递节点本身
+
+**向上传递公式：**$max(sum, sum + left, sum + right)$
+
+**维护ans的公式：**$max(sum, sum + left, sum + right, sum + left + right)$
+
+```java
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode() {}
+ *     TreeNode(int val) { this.val = val; }
+ *     TreeNode(int val, TreeNode left, TreeNode right) {
+ *         this.val = val;
+ *         this.left = left;
+ *         this.right = right;
+ *     }
+ * }
+ */
+class Solution {
+    private int ans = Integer.MIN_VALUE;
+    public int maxPathSum(TreeNode root) {
+        find(root);
+        return ans;
+    }
+    private int find(TreeNode u){
+        if(u == null)return 0;
+        int sum = u.val;
+        int left = find(u.left);
+        int right = find(u.right);
+        int op = Math.max(
+            Math.max(sum + left + right, sum),
+            Math.max(sum + left, sum + right)
+        );
+        if(ans < op)ans = op;
+        return Math.max(
+            Math.max(sum + left, sum + right),
+            sum
+        );
+    }
+}
+```
+

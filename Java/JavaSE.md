@@ -1430,3 +1430,55 @@ public class FunctionTest {
 | zzzz   | 完整时区名（如：中国标准时间） |
 | z      | 时区偏移量                     |
 
+# ArrayList的自定义排序
+
+```java
+List<ListNode> list = new ArrayList<>();
+Collections.sort(list, (op1, op2) -> {return op1.val - op2.val;});//升序排列
+```
+
+# PriorityQueue
+
+## 堆的自定义排序
+
+```java
+PriorityQueue<Integer> priorityQueue = new PriorityQueue<>((o1, o2) -> o2 - o1);//降序排列，也叫大根堆 
+```
+
+## 堆操作的API
+
+| 方法                         | 功能描述                                                    |
+| ---------------------------- | ----------------------------------------------------------- |
+| boolean add(E e)             | 添加元素，失败时抛出 `IllegalStateException`（容量限制时）  |
+| boolean offer(E e)           | 添加元素，失败时返回 `false`（更推荐使用）                  |
+| E poll()                     | 移除并返回队首元素（优先级最高），队列为空时返回 `null`     |
+| E remove()                   | 移除并返回队首元素，队列为空时抛出 `NoSuchElementException` |
+| E peek()                     | 返回队首元素（不删除），队列为空时返回 `null`               |
+| E element()                  | 返回队首元素，队列为空时抛出 `NoSuchElementException`       |
+| int size()                   | 返回元素个数                                                |
+| boolean isEmpty()            | 判断队列是否为空                                            |
+| void clear()                 | 清空队列                                                    |
+| `boolean contains(Object o)` | 判断是否包含指定元素                                        |
+| Iterator<E> iterator()       | 返回迭代器（迭代顺序不保证有序）                            |
+
+
+
+# stream流里的方法
+
+## peek()方法：
+
+* 只要用于**调试和副作用操作**（如打印日志、修改对象状态）
+* 接收一个**Consumer**函数式接口、对每个元素执行操作但不改变元素本身（Consumer接口的函数不需要返回值）
+* 返回的式**Stream\<T>**，元素类型不变
+
+## map()方法：
+
+* 用于**转换元素**，将一种类型的元素转换为另一种元素
+* 接受一个**Function**函数式接口，对每个元素进行转换（Function接口的函数需要返回值）
+* 返回的是**Stream\<R>**，元素类型可能改变
+
+# >> 和 >>> 的区别
+
+**\>>:** 是有符号右移，就是当最高位是 0 时（正数），右移后的最高位补 0，当最高位时 1 时（负数），右移后的最高位补 1
+
+**\>>>:** 是无符号右移，就是不管最高位是 0 还是 1 （是正数还是负数），右移后的最高位补 0
