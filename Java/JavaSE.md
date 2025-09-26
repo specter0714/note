@@ -1482,3 +1482,46 @@ PriorityQueue<Integer> priorityQueue = new PriorityQueue<>((o1, o2) -> o2 - o1);
 **\>>:** 是有符号右移，就是当最高位是 0 时（正数），右移后的最高位补 0，当最高位时 1 时（负数），右移后的最高位补 1
 
 **\>>>:** 是无符号右移，就是不管最高位是 0 还是 1 （是正数还是负数），右移后的最高位补 0
+
+# 匿名类
+
+使用下面的语法，可以创建一个新的匿名类实例
+
+```java
+Object test = new Object(){
+    ...
+}
+```
+
+匿名类会继承或者实现父类
+
+下面是匿名类**重写父类方法**，并调用方法
+
+```java
+Object test = new Object(){
+    @Override
+    public String toString(){
+        return "调用重写的方法";
+    }
+}
+
+System.out.println(test.toString());
+```
+
+下面是匿名类**新增方法**，并调用方法
+
+```java
+Object test = new Object(){
+    public void cout(String s){
+        System.out.println("调用新增的方法" + s);
+    }
+}
+
+Method coutMethod = test.getClass().getMethod("cout", String.class);
+coutMethod.invoke(test, "succeed");
+```
+
+**注意：**
+
+* 匿名类重写的方法，实例先转为父类类型，可以直接调用
+* 匿名类新增的方法，需通过反射调用

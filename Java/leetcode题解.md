@@ -947,3 +947,153 @@ class Solution {
 }
 ```
 
+# 208.实现 Trie（前缀树）
+
+我自己的代码
+
+```java
+class Trie {
+    public class Node {
+        char val;
+        List<Node> list;
+        boolean end = false;
+        public Node(char val){
+            this.val = val;
+            this.list = new ArrayList<>();
+        }
+        public Node(){
+            this.list = new ArrayList<>();
+        }
+    }
+
+    private Node first;
+
+    public Trie() {
+        this.first = new Node();
+    }
+    
+    public void insert(String word) {
+        Node op = first;
+        for(int i = 0; i < word.length(); i++){
+            char u = word.charAt(i);
+            int x = find(u, op);
+            if(x == -1){
+                op.list.add(new Node(u));
+                x = op.list.size() - 1;
+            }
+            op = op.list.get(x);
+            if(i == word.length() - 1)op.end = true;
+        }
+    }
+    
+    public boolean search(String word) {
+        Node op = first;
+        for(int i = 0; i < word.length(); i++){
+            char u = word.charAt(i);
+            int x = find(u, op);
+            if(x == -1)return false;
+            op = op.list.get(x);
+        }
+        if(op.end == true)return true;
+        return false;
+    }
+    
+    public boolean startsWith(String prefix) {
+        Node op = first;
+        for(int i = 0; i < prefix.length(); i++){
+            char u = prefix.charAt(i);
+            int x = find(u, op);
+            if(x == -1)return false;
+            op = op.list.get(x);
+        }
+        return true;
+    }
+
+    private int find(char u, Node op){
+        for(int i = 0; i < op.list.size(); i++){
+            if(op.list.get(i).val == u)return i;
+        }
+        return -1;
+    }
+}
+```
+
+官方题解
+
+```java
+class Trie {
+    private Trie[] children;
+    private boolean isEnd;
+
+    public Trie() {
+        children = new Trie[26];
+        isEnd = false;
+    }
+    
+    public void insert(String word) {
+        Trie node = this;
+        for (int i = 0; i < word.length(); i++) {
+            char ch = word.charAt(i);
+            int index = ch - 'a';
+            if (node.children[index] == null) {
+                node.children[index] = new Trie();
+            }
+            node = node.children[index];
+        }
+        node.isEnd = true;
+    }
+    
+    public boolean search(String word) {
+        Trie node = searchPrefix(word);
+        return node != null && node.isEnd;
+    }
+    
+    public boolean startsWith(String prefix) {
+        return searchPrefix(prefix) != null;
+    }
+
+    private Trie searchPrefix(String prefix) {
+        Trie node = this;
+        for (int i = 0; i < prefix.length(); i++) {
+            char ch = prefix.charAt(i);
+            int index = ch - 'a';
+            if (node.children[index] == null) {
+                return null;
+            }
+            node = node.children[index];
+        }
+        return node;
+    }
+}
+```
+
+# 78.子集
+
+**思路：**全排列的写法，因为是给的数组是不重复的，所以我们只需要先排序，然后再全排列的基础上，判断当前 list 的最后一个值有没有小于当前的 nums[i] ，如果没有则 continue，然后每一次都要加到 ans 链表里面去
+
+```java
+class Solution {
+    List<List<Integer>> ans = new LinkedList<>();
+    boolean[] st;
+    public List<List<Integer>> subsets(int[] nums) {
+        st = new boolean[nums.length];
+        Arrays.sort(nums);
+        dfs(nums, new LinkedList<Integer>());
+        return ans;
+    }
+
+    private void dfs(int[] nums, LinkedList<Integer> list){
+        for(int i = 0; i < nums.length; i++){
+            if(st[i])continue;
+            if(!list.isEmpty() && list.get(list.size() - 1) > nums[i])continue;
+            st[i] = true;
+            list.add(nums[i]);
+            dfs(nums, new LinkedList<>(list));
+            st[i] = false;
+            list.remove(list.size() - 1);
+        }
+        ans.add(list);
+    }
+}
+```
+

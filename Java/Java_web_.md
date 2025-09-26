@@ -2042,6 +2042,30 @@ cookie和session的区别：cookie直接保存在浏览器本地，用户可手�
 
 ### JWT令牌
 
+需要引入的依赖：
+
+```xml
+<!-- JWT 核心库 -->
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-api</artifactId>
+    <version>0.11.5</version>
+</dependency>
+
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-impl</artifactId>
+    <version>0.11.5</version>
+    <scope>runtime</scope>
+</dependency>
+
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-jackson</artifactId>
+    <version>0.11.5</version>
+</dependency>
+```
+
 * 全称：JSON Web Token (https://jwt.io/)
 * 定义了一种简洁的、自包含的格式，用于在通信双方以json数据格式安全的传输信息。
 * 组成：
